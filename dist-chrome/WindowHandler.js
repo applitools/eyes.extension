@@ -43,10 +43,13 @@
         var deferred = RSVP.defer();
         //noinspection JSUnresolvedVariable
         chrome.windows.update(theWindow.id, requiredSize, function (resizedWindow) {
-            //noinspection JSUnresolvedVariable
-            chrome.windows.get(resizedWindow.id, {populate: true}, function (populatedResizedWindow) {
-                deferred.resolve(populatedResizedWindow);
-            });
+            // Give the window 200ms to stabilize on the size.
+            window.setTimeout(function () {
+                //noinspection JSUnresolvedVariable
+                chrome.windows.get(resizedWindow.id, {populate: true}, function (populatedResizedWindow) {
+                    deferred.resolve(populatedResizedWindow);
+                });
+            }, 200);
         });
         return deferred.promise;
     };
@@ -89,7 +92,33 @@
         var requiredHeight = theWindow.height + (requiredViewportSize.height - theTab.height);
 
         var requiredWindowSize = {width: requiredWidth, height: requiredHeight};
-        return WindowHandler.resizeWindow(theWindow, requiredWindowSize);
+
+        return WindowHandler.resizeWindow(theWindow, requiredWindowSize).then(function (resizedWindow) {
+            // If the window reached the size we wanted, we just return it.
+            if (resizedWindow.width === requiredWidth && resizedWindow.height === requiredHeight) {
+                return RSVP.resolve(resizedWindow);
+            }
+            return WindowHandler.resizeWindow(theWindow, requiredWindowSize);
+        }).then(function (resizedWindow) { // First retry
+            // If the window reached the size we wanted, we just return it.
+            if (resizedWindow.width === requiredWidth && resizedWindow.height === requiredHeight) {
+                return RSVP.resolve(resizedWindow);
+            }
+            return WindowHandler.resizeWindow(theWindow, requiredWindowSize);
+        }).then(function (resizedWindow) { // Second retry
+            // If the window reached the size we wanted, we just return it.
+            if (resizedWindow.width === requiredWidth && resizedWindow.height === requiredHeight) {
+                return RSVP.resolve(resizedWindow);
+            }
+            return WindowHandler.resizeWindow(theWindow, requiredWindowSize);
+        }).then(function (resizedWindow) { // First retry
+            // If the window reached the size we wanted, we just return it.
+            if (resizedWindow.width === requiredWidth && resizedWindow.height === requiredHeight) {
+                return RSVP.resolve(resizedWindow);
+            }
+            // We couldn't reach the required size.
+            return RSVP.reject(resizedWindow);
+        });
     };
 
     //noinspection JSUnresolvedVariable
