@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html>
+<head lang="en">
+    <meta charset="UTF-8">
+    <title></title>
+    <link href='http://fonts.googleapis.com/css?family=Open+Sans' rel='stylesheet' type='text/css'>
+    <style>
+        .optionContainer {
+            display: block;
+            margin-bottom: 15px;
+        }
+        .optionContainer label, .optionContainer span {
+            border: 1px solid black;
+            margin: 1px;
+            padding: 1px;
+        }
+    </style>
+</head>
+<body>
+    <span class="optionContainer">
+        <label>
+            Open new tab for results
+            <input type="checkbox" id="newTabForResults" name="newTabForResults">
+        </label>
+        <span class="optionHelp">
+            Should open a new tab with the results when the test if finished. If This is not checked, you can still
+            see the results in <a href="https://eyes.applitools.com" target="_blank">eyes.applitools.com</a>
+        </span>
+    </span>
+    <span class="optionContainer">
+        <label>
+            Eyes server
+            <input type="text" id="eyesServerUrl" name="eyesServerUrl">
+        </label>
+        <span class="optionHelp">
+            The eyes server (do not change this unless you are sure).
+        </span>
+    </span>
+    <script src="compiled/bf-options.js"></script>
+</body>
+</html>

@@ -1,0 +1,228 @@
+body {
+  margin: 0;
+  font: 12px "Open Sans", sans-serif;
+}
+
+.notDisplayed {
+  display: none;
+}
+
+#mainPanel {
+  position: relative;
+  width: 388px;
+  height: 52px;
+  white-space: nowrap;
+  //noinspection CssUnknownProperty
+  -webkit-user-select: none;
+  cursor: default;
+
+  #options {
+      display: inline-block;
+      position: relative;
+      width: 20px;
+      height: 20px;
+      top: 7px;
+      padding: 3px 9px 1px;
+      margin-left: 1px;
+
+      &:hover {
+        background-image: linear-gradient(to bottom, #f7f7f7, #FBFBFB 99%);
+      }
+
+      .image {
+        display: inline-block;
+        position: relative;
+        width: 20px;
+        height: 20px;
+
+        //noinspection CssUnknownTarget
+        background-image: url("../images/options_over.png");
+
+        &:hover {
+          //noinspection CssUnknownTarget
+          background-image: url("../images/options_regular.png");
+        }
+
+        &:active {
+          //noinspection CssUnknownTarget
+          background-image: url("../images/options_active.png");
+        }
+      }
+  }
+
+
+  .button {
+    display: inline-block;
+    width: 100px;
+    vertical-align: middle;
+    overflow: hidden;
+//    border-radius: 2px;
+    height: 24px;
+    margin: 13px 0;
+    border-right: solid 1px #a8a8a8;
+//    background: #004e9b linear-gradient(to bottom, #ececec, #e4e4e4);
+
+    &:hover {
+//      background-image: linear-gradient(to bottom, #f7f7f7, #eaeaea 99%);
+      background-image: linear-gradient(to bottom, #f7f7f7, #FBFBFB 99%);
+//      box-shadow: inset 0 0 8px rgba(246,246,218,.74);
+    }
+
+    &:active {
+      background-image: linear-gradient(to top, #ececec, #dfdfdf);
+    }
+  }
+
+  #showBaseline {
+    border-left: solid 1px #a8a8a8;
+  }
+
+  .baselineText {
+    display: inline-block;
+    width: 100%;
+    height: 100%;
+    //noinspection CssUnknownTarget
+    background: url("../images/icon_baseline.png") no-repeat 4px 0;
+    margin-top: 3px;
+    text-indent: 26px;
+  }
+
+  .selectContainer {
+    position: relative;
+
+    select {
+      position: relative;
+      top: -2px;
+      left: -2px;
+      border: none;
+      width: 120px;
+      height: 28px;
+      background: no-repeat 7px 6px;
+      text-indent: 22px; /* Notice the start position is the same as the background image origin */
+    }
+
+    .dropDownArrow {
+      display: inline-block;
+      position: absolute;
+      top: 8px;
+      right: 5px;
+      width: 10px;
+      height: 10px;
+      //noinspection CssUnknownTarget
+      background: url("../images/dropdown_arrow.png");
+    }
+
+    #matchLevel {
+      //noinspection CssUnknownTarget
+      background-image: url("../images/icon_match_level.png");
+    }
+
+    #viewportSize {
+      //noinspection CssUnknownTarget
+      background-image: url("../images/icon_viewport_size.png");
+    }
+  }
+
+  #run {
+    position: relative;
+    display: inline-block;
+    width: 40px;
+    height: 24px;
+    top: 5px;
+    border-radius: 2px;
+//    margin-left: 6px;
+//    border: solid 1px #a8a8a8;
+//    background: #5db1cd linear-gradient(to bottom, #b5eff0, #a2dddf);
+
+    &:hover {
+      background-image: linear-gradient(to bottom, #f7f7f7, #F9F2F2 99%);
+//      background-image: linear-gradient(to top, #b5eff0, #c4f0f1);
+      //    box-shadow: inset 0 0 10px #DDF1F2;
+    }
+
+    &:active {
+      background-image: linear-gradient(to top, #b5eff0, #97d6d8);
+    }
+
+    .image {
+      //noinspection CssUnknownTarget
+      background-image: url("../images/camera.png");
+      display: inline-block;
+      width: 22px;
+      height: 20px;
+      position: relative;
+      top: 2px;
+      left: 9px;
+    }
+  }
+}
+
+#baselinePanel {
+  min-width: 445px;
+  margin-bottom: 5px;
+
+  .selectionContainer {
+    border-bottom: solid 1px #a8a8a8;
+    margin-top: 5px;
+    margin-bottom: 5px;
+    padding-bottom: 5px;
+  }
+
+  .userSelection {
+    // Margins here so that the selection bottom border will be stretched all the way.
+    margin-left: 7px;
+  }
+
+  #appName, #stepUrl {
+    margin-left: 5px;
+  }
+
+  .shortInput {
+    width: 194px;
+    height: 24px;
+    background-color: #f9f9f9;
+    border: solid 1px #a8a8a8;
+  }
+
+  .longInput {
+    width: 395px;
+    height: 25px;
+    background-color: #f9f9f9;
+    border: solid 1px #a8a8a8;
+  }
+
+  .decisionButtonsContainer {
+    position: relative;
+    height: 27px;
+    //noinspection CssUnknownProperty
+    -webkit-user-select: none;
+    cursor: default;
+    padding-right: 8px;
+  }
+
+  .decisionButton {
+    float: right;
+    display: inline-block;
+    width: 133px;
+    height: 25px;
+    text-align: center;
+    line-height: 2.2em;
+    border: solid 1px #a8a8a8;
+    background: #838383 linear-gradient(to bottom, #ececec, #e4e4e4);
+    margin-right: 6px;
+
+    &:hover {
+      box-shadow: inset 0 0 5px rgba(255,255,255,.75);
+    }
+
+    &:active {
+      background-image: linear-gradient(to top, #ececec, #e4e4e4);
+    }
+
+    &#baselineCancel {
+      margin-left: 7px;
+    }
+  }
+}
+
+

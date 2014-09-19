@@ -1,0 +1,24 @@
+{
+    "manifest_version": 2,
+
+    "name": "Eyes",
+    "description": "This extension enables you to run visual testing directly from the browser.",
+    "version": "1.0",
+
+    "permissions": [
+        "tabs",
+        "windows",
+        "cookies",
+        "storage",
+        "<all_urls>"
+    ],
+    "browser_action": {
+        "default_icon": "images/applitools_icon.png",
+        "default_popup": "popup.html"
+    },
+    "background": {
+      "scripts": ["compiled/bf-background.js"]
+    },
+
+    "options_page": "options.html"
+}

@@ -1,0 +1,49 @@
+<!doctype html>
+<!--suppress HtmlFormInputWithoutLabel -->
+<html>
+<head>
+    <title>Getting Started Extension's Popup</title>
+    <link href='http://fonts.googleapis.com/css?family=Open+Sans' rel='stylesheet' type='text/css'>
+    <link rel="stylesheet" type="text/css" href="compiled/popup.css">
+</head>
+<body>
+    <div id="mainPanel"><!--
+        --><span id="options"><span class="image"></span></span><!--
+        --><span class="button" id="showBaseline"><!--
+            --><span class="baselineText">Baseline</span><!--
+        --></span><!--
+        --><span class="button selectContainer" id="matchLevelContainer"><!--
+            --><select id="matchLevel"></select><!--
+            --><span class="dropDownArrow"></span><!--
+        --></span><!--
+        --><span class="button selectContainer" id="viewportSizeContainer"><!--
+            --><select id="viewportSize"></select><!--
+            --><span class="dropDownArrow"></span><!--
+        --></span><!--
+        --><span id="run"><!--
+            --><span class="image"></span><!--
+        --></span>
+    </div>
+    <div id="baselinePanel" class="notDisplayed">
+        <div class="selectionContainer defaultValuesContainer">
+            <input type="radio" name="userSelection" class="userSelection" id="defaultValuesSelection">
+            <span>Use default values (application name = URL domain, test name = URL path)</span>
+        </div>
+        <div class="selectionContainer userValuesContainer">
+            <input type="radio" name="userSelection" class="userSelection" id="userValuesSelection">
+            <input type="text" class="shortInput" name="appName" id="appName" placeholder="Application Name">
+            <input type="text" class="shortInput" name="testName" id="testName" placeholder="Test Name">
+        </div>
+        <div class="selectionContainer stepUrlContainer">
+            <input type="radio" name="userSelection" class="userSelection" id="stepUrlSelection" disabled="disabled">
+            <input type="text" class="longInput" name="stepUrl" id="stepUrl" placeholder="Step URL">
+        </div>
+        <div class="decisionButtonsContainer"><!--
+            --><span class="decisionButton" id="baselineOk">OK</span><!--
+            --><span class="decisionButton" id="baselineCancel">Cancel</span>
+        </div>
+    </div>
+    <script src="compiled/bf-popup.js"></script>
+</body>
+</html>
+
