@@ -70,10 +70,22 @@ window.Applitools = (function () {
             var originalTabIndex = originalTab.index;
 
             //noinspection JSUnresolvedVariable
-            chrome.windows.get(originalWindowId, function (originalWindow) {
+            chrome.windows.get(originalWindowId, {populate: true}, function (originalWindow) {
+                var originalTabsCount = originalWindow.tabs.length;
+                var originalWindowWidth = originalWindow.width;
+                var originalWindowHeight = originalWindow.height;
                 Applitools_._getSelectedViewportSize().then(function (requiredViewportSize) {
+                    var updatedWindowPromise;
+                    if (originalTabsCount > 1) {
+                        // The window contains multiple tabs, so we'll move the current tab to a new window for
+                        // resizing.
+                        updatedWindowPromise = WindowHandler.moveTabToNewWindow(originalTab, requiredViewportSize);
+                    } else {
+                        // The window only contains the current tab, so we'll just resize the current window.
+                        updatedWindowPromise = RSVP.resolve(originalWindow);
+                    }
                     // Move the current tab to a new window, so not to resize all the user's tabs
-                    WindowHandler.moveTabToNewWindow(originalTab, requiredViewportSize).then(function (newWindow) {
+                    updatedWindowPromise.then(function (newWindow) {
                         // Since the new window only includes a single tab.
                         //noinspection JSUnresolvedVariable
                         var movedTab = newWindow.tabs[0];
@@ -88,51 +100,67 @@ window.Applitools = (function () {
                                 // Get a screenshot of the current tab as PNG.
                                 //noinspection JSUnresolvedFunction,JSUnresolvedVariable
                                 chrome.tabs.captureVisibleTab({format: "png"}, function (imageDataUrl) {
+                                    var restoredWindowPromise;
+                                    if (originalTabsCount > 1) {
+                                        // If moved the tab out of its original window for resizing, we'll move it back.
+                                        restoredWindowPromise = WindowHandler.moveTabToExistingWindow(resizedTab,
+                                            originalWindow, originalTabIndex, true);
+                                    } else {
+                                        // If we used the original window, we resize it back, and return the updated
+                                        // tab.
+                                        restoredWindowPromise = WindowHandler.resizeWindow(resizedWindow,
+                                            {width: originalWindowWidth, height: originalWindowHeight})
+                                            .then(function (restoredWindow) {
+                                                var deferred = RSVP.defer();
+                                                //noinspection JSUnresolvedVariable
+                                                chrome.tabs.get(originalTab.id, function (restoredTab) {
+                                                    deferred.resolve(restoredTab);
+                                                });
+                                                return deferred.promise;
+                                            });
+                                    }
+                                    restoredWindowPromise.then(function (restoredTab) {
+                                        // Convert the image to a buffer.
+                                        var image64 = imageDataUrl.replace('data:image/png;base64,', '');
+                                        //noinspection JSUnresolvedFunction
+                                        var image = new Buffer(image64, 'base64');
 
-                                    WindowHandler.moveTabToExistingWindow(resizedTab, originalWindow, originalTabIndex,
-                                        true)
-                                        .then(function (restoredTab) {
-                                            // Convert the image to a buffer.
-                                            var image64 = imageDataUrl.replace('data:image/png;base64,', '');
-                                            //noinspection JSUnresolvedFunction
-                                            var image = new Buffer(image64, 'base64');
+                                        // FIXME Daniel - Add step URL handling
 
-                                            // FIXME Daniel - Add step URL handling
+                                        ConfigurationStore.getBaselineSelection().then(function (selectionId) {
+                                            ConfigurationStore.getBaselineAppName().then(function (appName) {
+                                                ConfigurationStore.getBaselineTestName().then(function (testName) {
+                                                    if (!selectionId) {
+                                                        // Use the domain as the app name, and the path as the test name.
+                                                        var domainRegexResult = /https?:\/\/([\w\.]+)?\//.exec(url);
+                                                        appName = domainRegexResult ? domainRegexResult[1] : url;
+                                                        var pathRegexResult = /https?:\/\/[\w\.]+?(\/\S*)(?:\?|$)/.exec(url);
+                                                        testName = pathRegexResult ? pathRegexResult[1] : '/';
+                                                    }
 
-                                            ConfigurationStore.getBaselineSelection().then(function (selectionId) {
-                                                ConfigurationStore.getBaselineAppName().then(function (appName) {
-                                                    ConfigurationStore.getBaselineTestName().then(function (testName) {
-                                                        if (!selectionId) {
-                                                            // Use the domain as the app name, and the path as the test name.
-                                                            var domainRegexResult = /https?:\/\/([\w\.]+)?\//.exec(url);
-                                                            appName = domainRegexResult ? domainRegexResult[1] : url;
-                                                            var pathRegexResult = /https?:\/\/[\w\.]+?(\/\S*)(?:\?|$)/.exec(url);
-                                                            testName = pathRegexResult ? pathRegexResult[1] : '/';
-                                                        }
-
-                                                        // Run the test
-                                                        EyesRunner.testImage(appName, testName, image, title,
-                                                            requiredViewportSize)
-                                                            .then(function (testResults) {
-                                                                ConfigurationStore.getNewTabForResults()
-                                                                    .then(function (shouldOpen) {
-                                                                        if (shouldOpen) {
-                                                                            //noinspection JSUnresolvedVariable
-                                                                            chrome.tabs.create({windowId: originalWindowId, url: testResults.url, active: false},
-                                                                                function () {
-                                                                                    deferred.resolve(testResults);
-                                                                                    Applitools_._testEnded();
-                                                                                });
-                                                                        } else {
-                                                                            deferred.resolve(testResults);
-                                                                            Applitools_._testEnded();
-                                                                        }
-                                                                    });
-                                                            });
-                                                    });
+                                                    // Run the test
+                                                    EyesRunner.testImage(appName, testName, image, title,
+                                                        requiredViewportSize)
+                                                        .then(function (testResults) {
+                                                            ConfigurationStore.getNewTabForResults()
+                                                                .then(function (shouldOpen) {
+                                                                    if (shouldOpen) {
+                                                                        //noinspection JSUnresolvedVariable
+                                                                        chrome.tabs.create({windowId: originalWindowId, url: testResults.url, active: false},
+                                                                            function () {
+                                                                                deferred.resolve(testResults);
+                                                                                Applitools_._testEnded();
+                                                                            });
+                                                                    } else {
+                                                                        deferred.resolve(testResults);
+                                                                        Applitools_._testEnded();
+                                                                    }
+                                                                });
+                                                        });
                                                 });
                                             });
                                         });
+                                    });
                                 }); // Capture visible tab
                             }, 1000);
                         });
