@@ -83,55 +83,58 @@ window.Applitools = (function () {
 
                             var actualViewportSize = {width: resizedTab.width, height: resizedTab.height};
 
-                            // Get a screenshot of the current tab as PNG.
-                            //noinspection JSUnresolvedFunction,JSUnresolvedVariable
-                            chrome.tabs.captureVisibleTab({format: "png"}, function (imageDataUrl) {
+                            // We wait a bit before actually taking the screenshot to give the page time to redraw.
+                            setTimeout(function () {
+                                // Get a screenshot of the current tab as PNG.
+                                //noinspection JSUnresolvedFunction,JSUnresolvedVariable
+                                chrome.tabs.captureVisibleTab({format: "png"}, function (imageDataUrl) {
 
-                                WindowHandler.moveTabToExistingWindow(resizedTab, originalWindow, originalTabIndex,
-                                    true)
-                                    .then(function (restoredTab) {
-                                        // Convert the image to a buffer.
-                                        var image64 = imageDataUrl.replace('data:image/png;base64,', '');
-                                        //noinspection JSUnresolvedFunction
-                                        var image = new Buffer(image64, 'base64');
+                                    WindowHandler.moveTabToExistingWindow(resizedTab, originalWindow, originalTabIndex,
+                                        true)
+                                        .then(function (restoredTab) {
+                                            // Convert the image to a buffer.
+                                            var image64 = imageDataUrl.replace('data:image/png;base64,', '');
+                                            //noinspection JSUnresolvedFunction
+                                            var image = new Buffer(image64, 'base64');
 
-                                        // FIXME Daniel - Add step URL handling
+                                            // FIXME Daniel - Add step URL handling
 
-                                        ConfigurationStore.getBaselineSelection().then(function (selectionId) {
-                                            ConfigurationStore.getBaselineAppName().then(function (appName) {
-                                                ConfigurationStore.getBaselineTestName().then(function (testName) {
-                                                    if (!selectionId) {
-                                                        // Use the domain as the app name, and the path as the test name.
-                                                        var domainRegexResult = /https?:\/\/([\w\.]+)?\//.exec(url);
-                                                        appName = domainRegexResult ? domainRegexResult[1] : url;
-                                                        var pathRegexResult = /https?:\/\/[\w\.]+?(\/\S*)(?:\?|$)/.exec(url);
-                                                        testName = pathRegexResult ? pathRegexResult[1] : '/';
-                                                    }
+                                            ConfigurationStore.getBaselineSelection().then(function (selectionId) {
+                                                ConfigurationStore.getBaselineAppName().then(function (appName) {
+                                                    ConfigurationStore.getBaselineTestName().then(function (testName) {
+                                                        if (!selectionId) {
+                                                            // Use the domain as the app name, and the path as the test name.
+                                                            var domainRegexResult = /https?:\/\/([\w\.]+)?\//.exec(url);
+                                                            appName = domainRegexResult ? domainRegexResult[1] : url;
+                                                            var pathRegexResult = /https?:\/\/[\w\.]+?(\/\S*)(?:\?|$)/.exec(url);
+                                                            testName = pathRegexResult ? pathRegexResult[1] : '/';
+                                                        }
 
-                                                    // Run the test
-                                                    EyesRunner.testImage(appName, testName, image, title,
-                                                        requiredViewportSize)
-                                                        .then(function (testResults) {
-                                                            ConfigurationStore.getNewTabForResults()
-                                                                .then(function (shouldOpen) {
-                                                                    if (shouldOpen) {
-                                                                        //noinspection JSUnresolvedVariable
-                                                                        chrome.tabs.create({url: testResults.url, active: false},
-                                                                            function () {
-                                                                                deferred.resolve(testResults);
-                                                                                Applitools_._testEnded();
-                                                                            });
-                                                                    } else {
-                                                                        deferred.resolve(testResults);
-                                                                        Applitools_._testEnded();
-                                                                    }
-                                                                });
-                                                        });
+                                                        // Run the test
+                                                        EyesRunner.testImage(appName, testName, image, title,
+                                                            requiredViewportSize)
+                                                            .then(function (testResults) {
+                                                                ConfigurationStore.getNewTabForResults()
+                                                                    .then(function (shouldOpen) {
+                                                                        if (shouldOpen) {
+                                                                            //noinspection JSUnresolvedVariable
+                                                                            chrome.tabs.create({windowId: originalWindowId, url: testResults.url, active: false},
+                                                                                function () {
+                                                                                    deferred.resolve(testResults);
+                                                                                    Applitools_._testEnded();
+                                                                                });
+                                                                        } else {
+                                                                            deferred.resolve(testResults);
+                                                                            Applitools_._testEnded();
+                                                                        }
+                                                                    });
+                                                            });
+                                                    });
                                                 });
                                             });
                                         });
-                                    });
-                            }); // Capture visible tab
+                                }); // Capture visible tab
+                            }, 1000);
                         });
                     });
                 });
