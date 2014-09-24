@@ -78,7 +78,7 @@ window.Applitools = (function () {
         }
         // If we used the original window, we resize it back to its original size.
         return WindowHandler.resizeWindow(resizedWindow, {width: originalSize.width, height: originalSize.height})
-            .then(function (restoredWindow) {
+            .then(function () {
                 var deferred = RSVP.defer();
                 //noinspection JSUnresolvedVariable
                 chrome.tabs.get(tab.id, function (restoredTab) {
@@ -139,7 +139,7 @@ window.Applitools = (function () {
                                     restoredWindowPromise = Applitools_._restoreTab(resizedTab, newWindowCreated,
                                         resizedWindow, originalWindow, originalTabIndex, {width: originalWindowWidth,
                                                                                         height: originalWindowHeight});
-                                    restoredWindowPromise.then(function (restoredTab) {
+                                    restoredWindowPromise.then(function () {
                                         // Convert the image to a buffer.
                                         var image64 = imageDataUrl.replace('data:image/png;base64,', '');
                                         //noinspection JSUnresolvedFunction
@@ -192,7 +192,7 @@ window.Applitools = (function () {
                             var restoredWindowPromise = Applitools_._restoreTab(resizedTab, newWindowCreated,
                                 invalidSizeWindow, originalWindow, originalTabIndex, {width: originalWindowWidth,
                                     height: originalWindowHeight});
-                            restoredWindowPromise.then(function (restoredTab) {
+                            restoredWindowPromise.then(function () {
                                 deferred.reject();
                                 Applitools_._testEnded();
                             });

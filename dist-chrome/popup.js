@@ -199,7 +199,7 @@
 
     /**
      * Initializes the elements on the main panel.
-     * @return {Promise} A promise which resolves when all the panel elements are initialized.
+     * @return {Promise} A promise which resolves to an array containing the initialization results.
      * @private
      */
     var _initMainPanel = function () {
@@ -386,7 +386,7 @@
 
     /**
      * Initializes the elements on the page.
-     * @return {Array} An array which contains all the results of the initializations
+     * @return {Promise} A promise which resolves to an array containing the initializations results.
      * @private
      */
     var _initPage = function () {

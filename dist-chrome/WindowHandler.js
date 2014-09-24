@@ -69,7 +69,7 @@
         chrome.tabs.move(tab.id, moveData, function (movedTab) {
             if (makeActive) {
                 //noinspection JSUnresolvedVariable
-                chrome.tabs.update(tab.id, {active: true}, function (activeTab) {
+                chrome.tabs.update(movedTab.id, {active: true}, function (activeTab) {
                     deferred.resolve(activeTab);
                 });
             } else {
