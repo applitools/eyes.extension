@@ -105,18 +105,22 @@ window.Applitools = (function () {
 
             //noinspection JSUnresolvedVariable
             chrome.windows.get(originalWindowId, {populate: true}, function (originalWindow) {
+                //noinspection JSUnresolvedVariable
                 var originalTabsCount = originalWindow.tabs.length;
                 var originalWindowWidth = originalWindow.width;
                 var originalWindowHeight = originalWindow.height;
                 Applitools_._getSelectedViewportSize().then(function (requiredViewportSize) {
                     var updatedWindowPromise;
+                    var isNewWindowCreated;
                     if (originalTabsCount > 1) {
                         // The window contains multiple tabs, so we'll move the current tab to a new window for
                         // resizing.
                         updatedWindowPromise = WindowHandler.moveTabToNewWindow(originalTab, requiredViewportSize);
+                        isNewWindowCreated = true;
                     } else {
                         // The window only contains the current tab, so we'll just resize the current window.
                         updatedWindowPromise = RSVP.resolve(originalWindow);
+                        isNewWindowCreated = false;
                     }
                     // Move the current tab to a new window, so not to resize all the user's tabs
                     updatedWindowPromise.then(function (newWindow) {
@@ -184,12 +188,10 @@ window.Applitools = (function () {
                                 }); // Capture visible tab
                             }, 1000);
                         }, function (invalidSizeWindow) { //Handling resize failure
-                            // We use tabs[0] whether it's a new window, or the original window only contained the active
-                            // tab, there's only a single tab in the window.
+                            // The window will only contain a single tab (the one we want).
                             //noinspection JSUnresolvedVariable
                             var resizedTab = invalidSizeWindow.tabs[0];
-                            var newWindowCreated = originalTabsCount > 1;
-                            var restoredWindowPromise = Applitools_._restoreTab(resizedTab, newWindowCreated,
+                            var restoredWindowPromise = Applitools_._restoreTab(resizedTab, isNewWindowCreated,
                                 invalidSizeWindow, originalWindow, originalTabIndex, {width: originalWindowWidth,
                                     height: originalWindowHeight});
                             restoredWindowPromise.then(function () {
