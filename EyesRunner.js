@@ -11,13 +11,16 @@
 
     var EyesCore = {};
 
-    EyesCore.testImage = function (appName, testName, image, tag, viewportSize) {
+    EyesCore.testImage = function (testParams, image, tag) {
         return ConfigurationStore.getEyesServerUrl().then(function (eyesServerUrl) {
             var eyes = new Eyes(eyesServerUrl);
             eyes.setLogHandler(new ConsoleLogHandler(true));
             return ConfigurationStore.getApiKey().then(function (apiKey) {
                 eyes.setApiKey(apiKey);
-                return eyes.open(appName, testName, {width: viewportSize.width, height: viewportSize.height})
+                eyes.setBranchName(testParams.branchName);
+                eyes.setParentBranchName(testParams.parentBranchName);
+                eyes.setInferredEnvironment("useragent:" + navigator.userAgent);
+                return eyes.open(testParams.appName, testParams.testName, testParams.viewportSize)
                     .then(function () {
                         return eyes.checkImage(image, tag, false, -1);
                     }).then(function () {
