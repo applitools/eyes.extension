@@ -295,7 +295,7 @@
      * @return {Promise} A promise which resolves to the element.
      * @private
      */
-    var _onBaselineStepUrlClicked = function () {
+    var _onBaselineStepUrlFocus = function () {
         _getStepUrlSelectionElement().checked = true;
         return RSVP.resolve(_getStepUrlInputElement());
     };
@@ -305,7 +305,7 @@
      * @return {Promise} A promise which resolves to the element.
      * @private
      */
-    var _onBaselineAppNameClicked = function () {
+    var _onBaselineAppNameFocus = function () {
         _getUserValuesSelectionElement().checked = true;
         return RSVP.resolve(_getAppNameInputElement());
     };
@@ -315,7 +315,7 @@
      * @return {Promise} A promise which resolves to the element.
      * @private
      */
-    var _onBaselineTestNameClicked = function () {
+    var _onBaselineTestNameFocus = function () {
         _getUserValuesSelectionElement().checked = true;
         return RSVP.resolve(_getTestNameInputElement());
     };
@@ -334,15 +334,15 @@
         // Load values from storage
         return ConfigurationStore.getBaselineStepUrl().then(function (stepUrl) {
             stepUrlInput.value = stepUrl || '';
-            stepUrlInput.addEventListener('click', _onBaselineStepUrlClicked);
+            stepUrlInput.addEventListener('focus', _onBaselineStepUrlFocus);
             return ConfigurationStore.getBaselineAppName();
         }).then(function (appName) {
             appNameInput.value = appName || '';
-            appNameInput.addEventListener('click', _onBaselineAppNameClicked);
+            appNameInput.addEventListener('focus', _onBaselineAppNameFocus);
             return ConfigurationStore.getBaselineTestName();
         }).then(function (testName) {
             testNameInput.value = testName || '';
-            testNameInput.addEventListener('click', _onBaselineTestNameClicked);
+            testNameInput.addEventListener('focus', _onBaselineTestNameFocus);
             return ConfigurationStore.getBaselineSelection();
         }).then(function (selectionId) {
             // If we don't have a selection Id, we'll assume that the default is selected
