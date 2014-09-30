@@ -87,7 +87,6 @@ body {
       width: 130px;
       height: 30px;
       background: no-repeat 10px;
-      text-indent: 34px; /* Notice the start position is the same as the background image origin */
 
       &:hover {
         color: $BUTTON_HOVER_FONT_COLOR;
@@ -118,6 +117,7 @@ body {
     }
 
     #matchLevel {
+      text-indent: 34px;
       //noinspection CssUnknownTarget
       background-image: url("../images/icon_match_level_regular.png");
 
@@ -133,6 +133,7 @@ body {
     }
 
     #viewportSize {
+      text-indent: 32px;
       //noinspection CssUnknownTarget
       background-image: url("../images/icon_viewport_size_regular.png");
 
