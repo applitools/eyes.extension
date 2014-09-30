@@ -60,10 +60,20 @@ body {
   .showBaselineText {
     display: inline-block;
     width: 100%;
-    //noinspection CssUnknownTarget
-    background: url("../images/icon_baseline.png") no-repeat 10px 0;
     margin-top: 3px;
-    text-indent: 37px;
+    text-indent: 36px;
+    //noinspection CssUnknownTarget
+    background: url("../images/icon_baseline_regular.png") no-repeat 7px -3px;
+
+    &:hover {
+      //noinspection CssUnknownTarget
+      background: url("../images/icon_baseline_over.png") no-repeat 7px -3px;
+    }
+
+    &:active {
+      //noinspection CssUnknownTarget
+      background: url("../images/icon_baseline_active.png") no-repeat 7px -3px;
+    }
   }
 
   .selectContainer {
