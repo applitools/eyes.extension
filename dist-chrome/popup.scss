@@ -3,6 +3,7 @@ $BUTTON_HOVER_FONT_COLOR: #0b7ba2;
 body {
   margin: 0;
   font: 12px "Open Sans", sans-serif;
+  color: #454545;
 }
 
 .notDisplayed {
@@ -184,6 +185,11 @@ body {
   .defaultValuesContainer {
     &:focus {
       outline: none;
+    }
+
+    #defaultValuesExplanation {
+      font-style: italic;
+      color: #9b9b9b;
     }
   }
 
