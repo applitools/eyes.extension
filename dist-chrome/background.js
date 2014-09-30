@@ -18,6 +18,7 @@ window.Applitools = (function () {
     var Applitools_ = {};
 
     Applitools_.currentState = {
+        tabToTest: undefined,
         runningTestsCount: 0,
         logs: [],
         showErrorBadge: false
@@ -32,6 +33,17 @@ window.Applitools = (function () {
     Applitools_._log = function (message) {
         Applitools_.currentState.logs.push({timestamp: new Date(), messgae: message});
         return RSVP.resolve(message);
+    };
+
+    //noinspection JSValidateJSDoc
+    /**
+     * Sets the tab to be tested.
+     * @param {Tab} tabToTest The tab which viewport we would like to test.
+     * @return {Promise} A promise which resolves when the tab is set.
+     */
+    Applitools_.setTabToTest = function (tabToTest) {
+        Applitools_.currentState.tabToTest = tabToTest;
+        return RSVP.resolve();
     };
 
     /**
@@ -267,104 +279,100 @@ window.Applitools = (function () {
 
         Applitools_._testStarted();
 
-        // Get properties of the current tab.
-        //noinspection JSUnresolvedVariable,JSUnresolvedFunction
-        chrome.tabs.query({currentWindow: true, active: true}, function (tabsList) {
-            var originalTab = tabsList[0];
-            //properties of tab object
-            var title = originalTab.title;
-            var url = originalTab.url;
-            var originalWindowId = originalTab.windowId;
-            var originalTabIndex = originalTab.index;
+        var tabToTest = Applitools_.currentState.tabToTest;
+        //properties of tab object
+        var title = tabToTest.title;
+        var url = tabToTest.url;
+        var originalWindowId = tabToTest.windowId;
+        var originalTabIndex = tabToTest.index;
 
+        //noinspection JSUnresolvedVariable
+        chrome.windows.get(originalWindowId, {populate: true}, function (originalWindow) {
             //noinspection JSUnresolvedVariable
-            chrome.windows.get(originalWindowId, {populate: true}, function (originalWindow) {
-                //noinspection JSUnresolvedVariable
-                var originalTabsCount = originalWindow.tabs.length;
-                var originalWindowWidth = originalWindow.width;
-                var originalWindowHeight = originalWindow.height;
-                ConfigurationStore.getBaselineSelection().then(function (selectionId) {
-                    Applitools_._getTestParameters(url, selectionId).then(function (testParams) {
-                        var requiredViewportSize = testParams.viewportSize;
-                        var updatedWindowPromise;
-                        var isNewWindowCreated;
-                        if (originalTabsCount > 1) {
-                            // The window contains multiple tabs, so we'll move the current tab to a new window for
-                            // resizing.
-                            updatedWindowPromise = WindowHandler.moveTabToNewWindow(originalTab, requiredViewportSize);
-                            isNewWindowCreated = true;
-                        } else {
-                            // The window only contains the current tab, so we'll just resize the current window.
-                            updatedWindowPromise = RSVP.resolve(originalWindow);
-                            isNewWindowCreated = false;
-                        }
-                        // Move the current tab to a new window, so not to resize all the user's tabs
-                        updatedWindowPromise.then(function (newWindow) {
-                            // Since the new window only includes a single tab.
+            var originalTabsCount = originalWindow.tabs.length;
+            var originalWindowWidth = originalWindow.width;
+            var originalWindowHeight = originalWindow.height;
+            ConfigurationStore.getBaselineSelection().then(function (selectionId) {
+                Applitools_._getTestParameters(url, selectionId).then(function (testParams) {
+                    var requiredViewportSize = testParams.viewportSize;
+                    var updatedWindowPromise;
+                    var isNewWindowCreated;
+                    if (originalTabsCount > 1) {
+                        // The window contains multiple tabs, so we'll move the current tab to a new window for
+                        // resizing.
+                        updatedWindowPromise = WindowHandler.moveTabToNewWindow(tabToTest, requiredViewportSize);
+                        isNewWindowCreated = true;
+                    } else {
+                        // The window only contains the current tab, so we'll just resize the current window.
+                        updatedWindowPromise = RSVP.resolve(originalWindow);
+                        isNewWindowCreated = false;
+                    }
+                    // Move the current tab to a new window, so not to resize all the user's tabs
+                    updatedWindowPromise.then(function (newWindow) {
+                        // Since the new window only includes a single tab.
+                        //noinspection JSUnresolvedVariable
+                        var movedTab = newWindow.tabs[0];
+                        WindowHandler.setViewportSize(newWindow, movedTab, requiredViewportSize).then(function (resizedWindow) {
                             //noinspection JSUnresolvedVariable
-                            var movedTab = newWindow.tabs[0];
-                            WindowHandler.setViewportSize(newWindow, movedTab, requiredViewportSize).then(function (resizedWindow) {
-                                //noinspection JSUnresolvedVariable
-                                var resizedTab = resizedWindow.tabs[0];
+                            var resizedTab = resizedWindow.tabs[0];
 
-                                // We wait a bit before actually taking the screenshot to give the page time to redraw.
-                                setTimeout(function () {
-                                    // Get a screenshot of the current tab as PNG.
-                                    //noinspection JSUnresolvedFunction,JSUnresolvedVariable
-                                    chrome.tabs.captureVisibleTab({format: "png"}, function (imageDataUrl) {
-                                        var restoredWindowPromise;
-                                        var newWindowCreated = originalTabsCount > 1;
-                                        restoredWindowPromise = Applitools_._restoreTab(resizedTab, newWindowCreated,
-                                            resizedWindow, originalWindow, originalTabIndex, {width: originalWindowWidth,
-                                                height: originalWindowHeight});
-                                        restoredWindowPromise.then(function () {
-                                            // Convert the image to a buffer.
-                                            var image64 = imageDataUrl.replace('data:image/png;base64,', '');
-                                            //noinspection JSUnresolvedFunction
-                                            var image = new Buffer(image64, 'base64');
+                            // We wait a bit before actually taking the screenshot to give the page time to redraw.
+                            setTimeout(function () {
+                                // Get a screenshot of the current tab as PNG.
+                                //noinspection JSUnresolvedFunction,JSUnresolvedVariable
+                                chrome.tabs.captureVisibleTab({format: "png"}, function (imageDataUrl) {
+                                    var restoredWindowPromise;
+                                    var newWindowCreated = originalTabsCount > 1;
+                                    restoredWindowPromise = Applitools_._restoreTab(resizedTab, newWindowCreated,
+                                        resizedWindow, originalWindow, originalTabIndex, {width: originalWindowWidth,
+                                            height: originalWindowHeight});
+                                    restoredWindowPromise.then(function () {
+                                        // Convert the image to a buffer.
+                                        var image64 = imageDataUrl.replace('data:image/png;base64,', '');
+                                        //noinspection JSUnresolvedFunction
+                                        var image = new Buffer(image64, 'base64');
 
-                                            // Run the test
-                                            EyesRunner.testImage(testParams, image, title)
-                                                .then(function (testResults) {
-                                                    ConfigurationStore.getNewTabForResults()
-                                                        .then(function (shouldOpen) {
-                                                            if (shouldOpen) {
-                                                                //noinspection JSUnresolvedVariable
-                                                                chrome.tabs.create({windowId: originalWindowId, url: testResults.url, active: false},
-                                                                    function () {
-                                                                        deferred.resolve(testResults);
-                                                                        Applitools_._testEnded();
-                                                                    });
-                                                            } else {
-                                                                deferred.resolve(testResults);
-                                                                Applitools_._testEnded();
-                                                            }
-                                                        });
-                                                });
-                                        });
-                                    }); // Capture visible tab
-                                }, 1000);
-                            }).catch(function (invalidSizeWindow) { //Handling resize failure.
-                                // The window will only contain a single tab (the one we want).
-                                //noinspection JSUnresolvedVariable
-                                var resizedTab = invalidSizeWindow.tabs[0];
-                                var restoredWindowPromise = Applitools_._restoreTab(resizedTab, isNewWindowCreated,
-                                    invalidSizeWindow, originalWindow, originalTabIndex, {width: originalWindowWidth,
-                                        height: originalWindowHeight});
-                                restoredWindowPromise.then(function () {
-                                    deferred.reject();
-                                    Applitools_._onError('Failed to set viewport size.');
-                                });
+                                        // Run the test
+                                        EyesRunner.testImage(testParams, image, title)
+                                            .then(function (testResults) {
+                                                ConfigurationStore.getNewTabForResults()
+                                                    .then(function (shouldOpen) {
+                                                        if (shouldOpen) {
+                                                            //noinspection JSUnresolvedVariable
+                                                            chrome.tabs.create({windowId: originalWindowId, url: testResults.url, active: false},
+                                                                function () {
+                                                                    deferred.resolve(testResults);
+                                                                    Applitools_._testEnded();
+                                                                });
+                                                        } else {
+                                                            deferred.resolve(testResults);
+                                                            Applitools_._testEnded();
+                                                        }
+                                                    });
+                                            });
+                                    });
+                                }); // Capture visible tab
+                            }, 1000);
+                        }).catch(function (invalidSizeWindow) { //Handling resize failure.
+                            // The window will only contain a single tab (the one we want).
+                            //noinspection JSUnresolvedVariable
+                            var resizedTab = invalidSizeWindow.tabs[0];
+                            var restoredWindowPromise = Applitools_._restoreTab(resizedTab, isNewWindowCreated,
+                                invalidSizeWindow, originalWindow, originalTabIndex, {width: originalWindowWidth,
+                                    height: originalWindowHeight});
+                            restoredWindowPromise.then(function () {
+                                deferred.reject();
+                                Applitools_._onError('Failed to set viewport size.');
                             });
                         });
-                    }).catch(function (err) { // Handling test parameters extraction failure.
-                        deferred.reject(err);
-                        Applitools_._onError('Failed to extract parameters the step URL: ' +  err);
                     });
-                }); // Get baseline selection
-            });
-            return deferred.promise;
+                }).catch(function (err) { // Handling test parameters extraction failure.
+                    deferred.reject(err);
+                    Applitools_._onError('Failed to extract parameters the step URL: ' +  err);
+                });
+            }); // Get baseline selection
         });
+        return deferred.promise;
     };
 
     return Applitools_;

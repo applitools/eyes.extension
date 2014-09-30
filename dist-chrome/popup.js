@@ -403,12 +403,31 @@
     };
 
     /**
+     *
+     * @return {Promise} A promise which resolves to the current tab.
+     * @private
+     */
+    var _getCurrentTab = function () {
+        var deferred = RSVP.defer();
+        //noinspection JSUnresolvedVariable
+        chrome.tabs.query({currentWindow: true, active: true}, function (tabsList) {
+            // Since there's only one active tab in the current window,
+            deferred.resolve(tabsList[0]);
+        });
+        return deferred.promise;
+    };
+
+    /**
      * Initializes the elements on the page.
      * @return {Promise} A promise which resolves to an array containing the initializations results.
      * @private
      */
     var _initPage = function () {
-        return RSVP.all([_initMainPanel(), _initBaselinePanel(), Applitools.onPopupOpen()]);
+        return _getCurrentTab().then(function (currentTab) {
+            return Applitools.setTabToTest(currentTab).then(function () {
+                return RSVP.all([_initMainPanel(), _initBaselinePanel(), Applitools.onPopupOpen()]);
+            });
+        });
     };
 
     document.addEventListener('DOMContentLoaded', _initPage);
