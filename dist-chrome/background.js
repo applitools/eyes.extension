@@ -10,6 +10,11 @@ window.Applitools = (function () {
         WindowHandler = require('./WindowHandler.js'),
         RSVP = require('rsvp');
 
+    var _DEFAULT_BROWSER_ACTION_TOOLTIP = "Applitools Eyes. No tests are currently running.";
+
+    //noinspection JSUnresolvedFunction,JSUnresolvedVariable
+    chrome.browserAction.setTitle({title: _DEFAULT_BROWSER_ACTION_TOOLTIP});
+
     var Applitools_ = {};
 
     Applitools_.currentState = {
@@ -28,6 +33,9 @@ window.Applitools = (function () {
         Applitools_.currentState.runningTestsCount++;
         //noinspection JSUnresolvedVariable,JSUnresolvedFunction
         chrome.browserAction.setBadgeText({text: Applitools_.currentState.runningTestsCount.toString()});
+        //noinspection JSUnresolvedVariable,JSUnresolvedFunction
+        chrome.browserAction.setTitle({title: 'Number of running tests: ' +
+            Applitools_.currentState.runningTestsCount});
         return RSVP.resolve(Applitools_.currentState.runningTestsCount);
     };
 
@@ -43,9 +51,14 @@ window.Applitools = (function () {
             Applitools_.currentState.runningTestsCount = 0;
             //noinspection JSUnresolvedFunction,JSUnresolvedVariable
             chrome.browserAction.setBadgeText({text: ''});
+            //noinspection JSUnresolvedFunction,JSUnresolvedVariable
+            chrome.browserAction.setTitle({title: _DEFAULT_BROWSER_ACTION_TOOLTIP});
         } else {
             //noinspection JSUnresolvedVariable,JSUnresolvedFunction
             chrome.browserAction.setBadgeText({text: Applitools_.currentState.runningTestsCount.toString()});
+            //noinspection JSUnresolvedVariable,JSUnresolvedFunction
+            chrome.browserAction.setTitle({title: 'Number of running tests: ' +
+                Applitools_.currentState.runningTestsCount});
         }
         return RSVP.resolve(Applitools_.currentState.runningTestsCount);
     };
