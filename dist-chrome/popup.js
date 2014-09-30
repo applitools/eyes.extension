@@ -236,6 +236,10 @@
         return document.getElementById('defaultValuesSelection');
     };
 
+    var _getDefaultValuesSelectionContainer = function () {
+        return document.getElementsByClassName('defaultValuesContainer')[0];
+    };
+
     /**
      * Saves the changes the user performed on the baseline panel (if valid) and shows the main panel. If changes were
      * not valid, it will NOT switch back to the main panel.
@@ -321,6 +325,16 @@
     };
 
     /**
+     * Handles user focus on the default values selection.
+     * @return {Promise} A promise which resolves to the default values selection container.
+     * @private
+     */
+    var _onBaselineDefaultSelectionFocus = function () {
+        _getDefaultValuesSelectionElement().checked = true;
+        return RSVP.resolve(_getDefaultValuesSelectionContainer());
+    };
+
+    /**
      * Initializes the user selection elements (which one is selected, and the current value, if exists).
      * @return {Promise} A promise which resolves to the checked element initialization is done.
      * @private
@@ -330,6 +344,7 @@
         var stepUrlInput = _getStepUrlInputElement();
         var appNameInput = _getAppNameInputElement();
         var testNameInput = _getTestNameInputElement();
+        var defulatValuesSelectionContainer = _getDefaultValuesSelectionContainer();
 
         // Load values from storage
         return ConfigurationStore.getBaselineStepUrl().then(function (stepUrl) {
@@ -345,6 +360,9 @@
             testNameInput.addEventListener('focus', _onBaselineTestNameFocus);
             return ConfigurationStore.getBaselineSelection();
         }).then(function (selectionId) {
+            // Setting behavior for the default selection container.
+            defulatValuesSelectionContainer.addEventListener('focus', _onBaselineDefaultSelectionFocus);
+
             // If we don't have a selection Id, we'll assume that the default is selected
             var checkedElement = selectionId ? document.getElementById(selectionId) :
                                                 _getDefaultValuesSelectionElement();

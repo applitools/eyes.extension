@@ -181,6 +181,12 @@ body {
     padding-right: 18px;
   }
 
+  .defaultValuesContainer {
+    &:focus {
+      outline: none;
+    }
+  }
+
   .userSelection {
     // Margins here so that the selection bottom border will be stretched all the way.
     margin: 20px 18px 0;
