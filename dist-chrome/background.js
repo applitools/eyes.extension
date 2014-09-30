@@ -18,9 +18,91 @@ window.Applitools = (function () {
     var Applitools_ = {};
 
     Applitools_.currentState = {
-        runningTestsCount: 0
+        runningTestsCount: 0,
+        logs: [],
+        showErrorBadge: false
     };
 
+    /**
+     * Logs a message
+     * @param {string} message The message to log
+     * @return {Promise} A promise which resolves to the logged message.
+     * @private
+     */
+    Applitools_._log = function (message) {
+        Applitools_.currentState.logs.push({timestamp: new Date(), messgae: message});
+        return RSVP.resolve(message);
+    };
+
+    /**
+     * Updates the browser action badge.
+     * @param {boolean} isError Whether to display an error notification or a normal notification (if required).
+     * @return {Promise} A promise which resolves when the badge is set.
+     * @private
+     */
+    Applitools_._updateBrowserActionBadge = function (isError) {
+        if (isError) {
+            //noinspection JSUnresolvedFunction,JSUnresolvedVariable
+            chrome.browserAction.setBadgeBackgroundColor({color: [255, 255, 0, 255]});
+            //noinspection JSUnresolvedFunction,JSUnresolvedVariable
+            chrome.browserAction.setTitle({title: 'An error occurred. Logs are available in the options page.'});
+            //noinspection JSUnresolvedFunction,JSUnresolvedVariable
+            chrome.browserAction.setBadgeText({text: '!'});
+            return RSVP.resolve();
+        }
+
+        // If we're here then we want to update the badge with the number of running tests. However, we only update
+        // this if we should not continue show the error.
+        if (Applitools_.currentState.showErrorBadge) {
+            return RSVP.resolve();
+        }
+
+        // Okay, we can update the badge with the number of running tests (or remove it if no tests are currently
+        // running).
+        if (Applitools_.currentState.runningTestsCount) {
+            //noinspection JSUnresolvedFunction,JSUnresolvedVariable
+            chrome.browserAction.setBadgeBackgroundColor({color: [0, 0, 255, 127]});
+            //noinspection JSUnresolvedVariable,JSUnresolvedFunction
+            chrome.browserAction.setBadgeText({text: Applitools_.currentState.runningTestsCount.toString()});
+            //noinspection JSUnresolvedVariable,JSUnresolvedFunction
+            chrome.browserAction.setTitle({title: 'Number of running tests: ' +
+                Applitools_.currentState.runningTestsCount});
+        } else { // No running tests
+            //noinspection JSUnresolvedFunction,JSUnresolvedVariable
+            chrome.browserAction.setBadgeText({text: ''});
+            //noinspection JSUnresolvedFunction,JSUnresolvedVariable
+            chrome.browserAction.setTitle({title: _DEFAULT_BROWSER_ACTION_TOOLTIP});
+        }
+        return RSVP.resolve();
+    };
+
+    /**
+     * Processes an error.
+     * @param {String} errorMessage The message describing the error.
+     * @return {Promise} A promise which resolves when finished the required operations onError.
+     * @private
+     */
+    Applitools_._onError = function (errorMessage) {
+        if (!errorMessage) {
+            errorMessage = 'Unknown error occurred.';
+        }
+        errorMessage = 'Error: ' + errorMessage;
+        Applitools_.currentState.logs.push(errorMessage);
+        Applitools_.currentState.showErrorBadge = true;
+        return Applitools_._updateBrowserActionBadge(true).then(function () {
+            return Applitools_._testEnded();
+        });
+    };
+
+    /**
+     * Notifies the background script that the popup page had been opened.
+     * @return {Promise} A promise which resolves when finished the required handling.
+     */
+    Applitools_.onPopupOpen = function () {
+        // If there was an error badge, we can stop displaying it.
+        Applitools_.currentState.showErrorBadge = false;
+        return Applitools_._updateBrowserActionBadge(false);
+    };
 
     /**
      * Updates relevant items when a test is started.
@@ -28,15 +110,10 @@ window.Applitools = (function () {
      * @private
      */
     Applitools_._testStarted = function () {
-        //noinspection JSUnresolvedFunction,JSUnresolvedVariable
-        chrome.browserAction.setBadgeBackgroundColor({color: [0, 0, 255, 127]});
         Applitools_.currentState.runningTestsCount++;
-        //noinspection JSUnresolvedVariable,JSUnresolvedFunction
-        chrome.browserAction.setBadgeText({text: Applitools_.currentState.runningTestsCount.toString()});
-        //noinspection JSUnresolvedVariable,JSUnresolvedFunction
-        chrome.browserAction.setTitle({title: 'Number of running tests: ' +
-            Applitools_.currentState.runningTestsCount});
-        return RSVP.resolve(Applitools_.currentState.runningTestsCount);
+        return Applitools_._updateBrowserActionBadge(false).then(function () {
+            return RSVP.resolve(Applitools_.currentState.runningTestsCount);
+        });
     };
 
     /**
@@ -49,18 +126,11 @@ window.Applitools = (function () {
 
         if (Applitools_.currentState.runningTestsCount <= 0) {
             Applitools_.currentState.runningTestsCount = 0;
-            //noinspection JSUnresolvedFunction,JSUnresolvedVariable
-            chrome.browserAction.setBadgeText({text: ''});
-            //noinspection JSUnresolvedFunction,JSUnresolvedVariable
-            chrome.browserAction.setTitle({title: _DEFAULT_BROWSER_ACTION_TOOLTIP});
-        } else {
-            //noinspection JSUnresolvedVariable,JSUnresolvedFunction
-            chrome.browserAction.setBadgeText({text: Applitools_.currentState.runningTestsCount.toString()});
-            //noinspection JSUnresolvedVariable,JSUnresolvedFunction
-            chrome.browserAction.setTitle({title: 'Number of running tests: ' +
-                Applitools_.currentState.runningTestsCount});
         }
-        return RSVP.resolve(Applitools_.currentState.runningTestsCount);
+
+        return Applitools_._updateBrowserActionBadge(false).then(function () {
+            return RSVP.resolve(Applitools_.currentState.runningTestsCount);
+        });
     };
 
     /**
@@ -102,57 +172,60 @@ window.Applitools = (function () {
      * @private
      */
     Applitools_._getTestParameters = function (url, selectionId) {
-        var testParamsPromise;
-        if (selectionId === 'stepUrlSelection') {
-            testParamsPromise = ConfigurationStore.getBaselineStepUrl().then(function (stepUrl) {
-                var sessionIdRegexResult = /sessions\/(\d+)(?:\/|$)/.exec(stepUrl);
-                if (!sessionIdRegexResult || sessionIdRegexResult.length !== 2) {
-                    return RSVP.reject(new Error('Invalid step URL: ' + stepUrl));
-                }
-                var sessionId = sessionIdRegexResult[1];
-                return Applitools_._getSessionInfo(sessionId).then(function (sessionInfo) {
-                    var appName = sessionInfo.startInfo.appIdOrName;
-                    var testName = sessionInfo.startInfo.scenarioIdOrName;
-                    var branchName = sessionInfo.startInfo.branchName;
-                    var parentBranchNAme = sessionInfo.startInfo.parentBranchName;
-                    var os = sessionInfo.startInfo.environment.os;
-                    var hostingApp = sessionInfo.startInfo.environment.hostingApp;
-                    var viewportSize = {};
-                    viewportSize.width = sessionInfo.startInfo.environment.displaySize.width;
-                    viewportSize.height = sessionInfo.startInfo.environment.displaySize.height;
-                    var testParams = {appName: appName, testName: testName, branchName: branchName,
+        return ConfigurationStore.getMatchLevel().then(function (matchLevel) {
+            var testParamsPromise;
+            if (selectionId === 'stepUrlSelection') {
+                testParamsPromise = ConfigurationStore.getBaselineStepUrl().then(function (stepUrl) {
+                    var sessionIdRegexResult = /sessions\/(\d+)(?:\/|$)/.exec(stepUrl);
+                    if (!sessionIdRegexResult || sessionIdRegexResult.length !== 2) {
+                        return RSVP.reject(new Error('Invalid step URL: ' + stepUrl));
+                    }
+                    var sessionId = sessionIdRegexResult[1];
+                    return Applitools_._getSessionInfo(sessionId).then(function (sessionInfo) {
+                        var appName = sessionInfo.startInfo.appIdOrName;
+                        var testName = sessionInfo.startInfo.scenarioIdOrName;
+                        var branchName = sessionInfo.startInfo.branchName;
+                        var parentBranchNAme = sessionInfo.startInfo.parentBranchName;
+                        var os = sessionInfo.startInfo.environment.os;
+                        var hostingApp = sessionInfo.startInfo.environment.hostingApp;
+                        var viewportSize = {};
+                        viewportSize.width = sessionInfo.startInfo.environment.displaySize.width;
+                        viewportSize.height = sessionInfo.startInfo.environment.displaySize.height;
+                        var testParams = {appName: appName, testName: testName, branchName: branchName,
                             parentBranchName: parentBranchNAme, os: os, hostingApp: hostingApp,
-                            viewportSize: viewportSize};
-                    return RSVP.resolve(testParams);
-                });
-            });
-        } else {
-            // If the user selected specific app and test names, we use them.
-            if (selectionId === 'userValuesSelection') {
-                testParamsPromise = ConfigurationStore.getBaselineAppName().then(function (appName) {
-                    return ConfigurationStore.getBaselineTestName().then(function (testName) {
-                        return RSVP.resolve({appName: appName, testName: testName});
+                            viewportSize: viewportSize, matchLevel: matchLevel};
+                        return RSVP.resolve(testParams);
                     });
                 });
-            } else { // Use the domain as the app name, and the path as the test name.
-                var domainRegexResult = /https?:\/\/([\w\.]+)?\//.exec(url);
-                var appName = domainRegexResult ? domainRegexResult[1] : url;
-                var pathRegexResult = /https?:\/\/[\w\.]+?(\/\S*)(?:\?|$)/.exec(url);
-                var testName = pathRegexResult ? pathRegexResult[1] : '/';
-                testParamsPromise = RSVP.resolve({appName: appName, testName: testName});
-            }
+            } else {
+                // If the user selected specific app and test names, we use them.
+                if (selectionId === 'userValuesSelection') {
+                    testParamsPromise = ConfigurationStore.getBaselineAppName().then(function (appName) {
+                        return ConfigurationStore.getBaselineTestName().then(function (testName) {
+                            return RSVP.resolve({appName: appName, testName: testName});
+                        });
+                    });
+                } else { // Use the domain as the app name, and the path as the test name.
+                    var domainRegexResult = /https?:\/\/([\w\.]+)?\//.exec(url);
+                    var appName = domainRegexResult ? domainRegexResult[1] : url;
+                    var pathRegexResult = /https?:\/\/[\w\.]+?(\/\S*)(?:\?|$)/.exec(url);
+                    var testName = pathRegexResult ? pathRegexResult[1] : '/';
+                    testParamsPromise = RSVP.resolve({appName: appName, testName: testName});
+                }
 
-            testParamsPromise = testParamsPromise.then(function (testParams) {
-                return ConfigurationStore.getViewportSize().then(function (viewportSizeStr) {
-                    var values = viewportSizeStr.split('x');
-                    var width = parseInt(values[0], 10);
-                    var height = parseInt(values[1], 10);
-                    testParams.viewportSize = {width: width, height: height};
-                    return RSVP.resolve(testParams);
+                testParamsPromise = testParamsPromise.then(function (testParams) {
+                    testParams.matchLevel = matchLevel;
+                    return ConfigurationStore.getViewportSize().then(function (viewportSizeStr) {
+                        var values = viewportSizeStr.split('x');
+                        var width = parseInt(values[0], 10);
+                        var height = parseInt(values[1], 10);
+                        testParams.viewportSize = {width: width, height: height};
+                        return RSVP.resolve(testParams);
+                    });
                 });
-            });
-        }
-        return testParamsPromise;
+            }
+            return testParamsPromise;
+        });
     };
 
     //noinspection JSValidateJSDoc
@@ -280,13 +353,13 @@ window.Applitools = (function () {
                                         height: originalWindowHeight});
                                 restoredWindowPromise.then(function () {
                                     deferred.reject();
-                                    Applitools_._testEnded();
+                                    Applitools_._onError('Failed to set viewport size.');
                                 });
                             });
                         });
                     }).catch(function (err) { // Handling test parameters extraction failure.
                         deferred.reject(err);
-                        Applitools_._testEnded();
+                        Applitools_._onError('Failed to extract parameters the step URL: ' +  err);
                     });
                 }); // Get baseline selection
             });

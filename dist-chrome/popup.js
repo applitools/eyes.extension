@@ -408,7 +408,7 @@
      * @private
      */
     var _initPage = function () {
-        return RSVP.all([_initMainPanel(), _initBaselinePanel()]);
+        return RSVP.all([_initMainPanel(), _initBaselinePanel(), Applitools.onPopupOpen()]);
     };
 
     document.addEventListener('DOMContentLoaded', _initPage);
