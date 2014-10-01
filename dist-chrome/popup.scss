@@ -1,19 +1,6 @@
+@import "base";
+
 $BUTTON_HOVER_FONT_COLOR: #0b7ba2;
-
-@mixin userSelect($choice) {
-  //noinspection CssUnknownProperty
-  -webkit-user-select: $choice;
-}
-
-body {
-  margin: 0;
-  font: 12px "Open Sans", sans-serif;
-  color: #454545;
-}
-
-.notDisplayed {
-  display: none;
-}
 
 #mainPanel {
   position: relative;
@@ -234,21 +221,9 @@ body {
   }
 
   .decisionButton {
+    @include classicButton;
     float: right;
-    display: inline-block;
-    width: 183px;
-    height: 25px;
-    border: solid 1px #a8a8a8;
-    background: #838383 linear-gradient(to bottom, #ececec, #e4e4e4);
     margin-top: 18px;
-
-    &:hover {
-      box-shadow: inset 0 0 5px rgba(255,255,255,.75);
-    }
-
-    &:active {
-      background-image: linear-gradient(to top, #ececec, #e4e4e4);
-    }
 
     &#baselineCancel {
       margin-right: 16px;

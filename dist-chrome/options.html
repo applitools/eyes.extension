@@ -3,39 +3,42 @@
 <head lang="en">
     <meta charset="UTF-8">
     <title></title>
-    <link href='http://fonts.googleapis.com/css?family=Open+Sans' rel='stylesheet' type='text/css'>
-    <style>
-        .optionContainer {
-            display: block;
-            margin-bottom: 15px;
-        }
-        .optionContainer label, .optionContainer span {
-            border: 1px solid black;
-            margin: 1px;
-            padding: 1px;
-        }
-    </style>
+    <link href='http://fonts.googleapis.com/css?family=Open+Sans:400italic,400' rel='stylesheet' type='text/css'>
+    <link rel="stylesheet" type="text/css" href="compiled/options.css">
 </head>
 <body>
-    <span class="optionContainer">
-        <label>
-            Open new tab for results
-            <input type="checkbox" id="newTabForResults" name="newTabForResults">
-        </label>
-        <span class="optionHelp">
-            Should open a new tab with the results when the test if finished. If This is not checked, you can still
-            see the results in <a href="https://eyes.applitools.com" target="_blank">eyes.applitools.com</a>
-        </span>
-    </span>
-    <span class="optionContainer">
-        <label>
-            Eyes server
-            <input type="text" id="eyesServerUrl" name="eyesServerUrl">
-        </label>
-        <span class="optionHelp">
-            The eyes server (do not change this unless you are sure of what you are doing!).
-        </span>
-    </span>
+    <header>
+        <img src="images/applitools_logo.png"><!--
+        --><span>Options</span>
+    </header>
+    <div class="optionContainer"><!--
+        --><span class="optionValue"><!--
+            --><input type="checkbox" id="newTabForResults" name="newTabForResults"><!--
+            --><label for="newTabForResults">Open new tab for results</label><!--
+        --></span><!--
+        --><span class="optionHelp">
+            Whether or not to automatically open a new tab showing the test results. If this is not checked, you can
+            still see the results in <a href="https://eyes.applitools.com" target="_blank">eyes.applitools.com</a>.
+        </span><!--
+    --></div>
+    <div class="optionContainer"><!--
+        --><span class="optionValue"><!--
+            --><label for="eyesServerUrl">Eyes server</label><!--
+            --><input type="text" id="eyesServerUrl" name="eyesServerUrl"><!--
+            --><button id="restoreDefaultUrl">Restore default URL</button><!--
+        --></span><!--
+        --><span class="optionHelp">
+            The URL of the Eyes server used for testing (do not change this unless you are sure of what you are doing!).
+        </span><!--
+    --></div>
+    <div>
+        <div>
+            <label for="runLogs">
+                Logs
+            </label>
+        </div>
+        <textarea id="runLogs" readonly="readonly">Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum Lorem ipsum</textarea>
+    </div>
     <script src="compiled/bf-options.js"></script>
 </body>
 </html>
