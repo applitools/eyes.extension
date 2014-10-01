@@ -1,5 +1,10 @@
 $BUTTON_HOVER_FONT_COLOR: #0b7ba2;
 
+@mixin userSelect($choice) {
+  //noinspection CssUnknownProperty
+  -webkit-user-select: $choice;
+}
+
 body {
   margin: 0;
   font: 12px "Open Sans", sans-serif;
@@ -16,9 +21,12 @@ body {
   height: 52px;
   overflow-y: hidden;
   white-space: nowrap;
-  //noinspection CssUnknownProperty
-  -webkit-user-select: none;
+  @include userSelect(none);
   cursor: default;
+
+  .mainPanelElement {
+    outline: none;
+  }
 
   #options {
       display: inline-block;
@@ -220,8 +228,7 @@ body {
   .decisionButtonsContainer {
     position: relative;
     height: 53px;
-    //noinspection CssUnknownProperty
-    -webkit-user-select: none;
+    @include userSelect(none);
     cursor: default;
     padding-right: 18px;
   }
