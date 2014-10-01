@@ -299,7 +299,7 @@
      * @return {Promise} A promise which resolves to the element.
      * @private
      */
-    var _onBaselineStepUrlFocus = function () {
+    var _onBaselineStepUrlSelected = function () {
         _getStepUrlSelectionElement().checked = true;
         return RSVP.resolve(_getStepUrlInputElement());
     };
@@ -309,7 +309,7 @@
      * @return {Promise} A promise which resolves to the element.
      * @private
      */
-    var _onBaselineAppNameFocus = function () {
+    var _onBaselineAppNameSelected = function () {
         _getUserValuesSelectionElement().checked = true;
         return RSVP.resolve(_getAppNameInputElement());
     };
@@ -319,7 +319,7 @@
      * @return {Promise} A promise which resolves to the element.
      * @private
      */
-    var _onBaselineTestNameFocus = function () {
+    var _onBaselineTestNameSelected = function () {
         _getUserValuesSelectionElement().checked = true;
         return RSVP.resolve(_getTestNameInputElement());
     };
@@ -329,7 +329,7 @@
      * @return {Promise} A promise which resolves to the default values selection container.
      * @private
      */
-    var _onBaselineDefaultSelectionFocus = function () {
+    var _onBaselineDefaultSelectionSelected = function () {
         _getDefaultValuesSelectionElement().checked = true;
         return RSVP.resolve(_getDefaultValuesSelectionContainer());
     };
@@ -344,24 +344,27 @@
         var stepUrlInput = _getStepUrlInputElement();
         var appNameInput = _getAppNameInputElement();
         var testNameInput = _getTestNameInputElement();
-        var defulatValuesSelectionContainer = _getDefaultValuesSelectionContainer();
+        var defaultValuesSelectionContainer = _getDefaultValuesSelectionContainer();
 
         // Load values from storage
         return ConfigurationStore.getBaselineStepUrl().then(function (stepUrl) {
             stepUrlInput.value = stepUrl || '';
-            stepUrlInput.addEventListener('focus', _onBaselineStepUrlFocus);
+            stepUrlInput.addEventListener('click', _onBaselineStepUrlSelected);
+            stepUrlInput.addEventListener('change', _onBaselineStepUrlSelected);
             return ConfigurationStore.getBaselineAppName();
         }).then(function (appName) {
             appNameInput.value = appName || '';
-            appNameInput.addEventListener('focus', _onBaselineAppNameFocus);
+            appNameInput.addEventListener('click', _onBaselineAppNameSelected);
+            appNameInput.addEventListener('change', _onBaselineAppNameSelected);
             return ConfigurationStore.getBaselineTestName();
         }).then(function (testName) {
             testNameInput.value = testName || '';
-            testNameInput.addEventListener('focus', _onBaselineTestNameFocus);
+            testNameInput.addEventListener('click', _onBaselineTestNameSelected);
+            testNameInput.addEventListener('change', _onBaselineTestNameSelected);
             return ConfigurationStore.getBaselineSelection();
         }).then(function (selectionId) {
             // Setting behavior for the default selection container.
-            defulatValuesSelectionContainer.addEventListener('focus', _onBaselineDefaultSelectionFocus);
+            defaultValuesSelectionContainer.addEventListener('focus', _onBaselineDefaultSelectionSelected);
 
             // If we don't have a selection Id, we'll assume that the default is selected
             var checkedElement = selectionId ? document.getElementById(selectionId) :

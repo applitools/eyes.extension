@@ -6,23 +6,23 @@
     <link href='http://fonts.googleapis.com/css?family=Open+Sans:400italic,400' rel='stylesheet' type='text/css'>
     <link rel="stylesheet" type="text/css" href="compiled/popup.css">
 </head>
-<body>
-    <div id="mainPanel" tabindex="1"><!--
-        --><span class="mainPanelElement" id="options" title="Open the options page" tabindex="6"></span><!--
-        --><span class="mainPanelElement button" id="showBaseline" title="Set the test baseline" tabindex="5"><!--
+<body tabindex="-1">
+    <div id="mainPanel" tabindex="-1"><!--
+        --><span class="mainPanelElement" id="options" title="Open the options page" tabindex="5"></span><!--
+        --><span class="mainPanelElement button" id="showBaseline" title="Set the test baseline" tabindex="4"><!--
             --><span class="showBaselineText">Baseline...</span><!--
         --></span><!--
-        --><span class="mainPanelElement button selectContainer" id="matchLevelContainer" title="Set the match level for the test" tabindex="4"><!--
+        --><span class="mainPanelElement button selectContainer" id="matchLevelContainer" title="Set the match level for the test" tabindex="3"><!--
             --><select id="matchLevel"></select><!--
             --><span class="dropDownArrow"></span><!--
         --></span><!--
-        --><span class="mainPanelElement button selectContainer" id="viewportSizeContainer" title="Set the viewport size in which the test will run" tabindex="3"><!--
+        --><span class="mainPanelElement button selectContainer" id="viewportSizeContainer" title="Set the viewport size in which the test will run" tabindex="2"><!--
             --><select id="viewportSize"></select><!--
             --><span class="dropDownArrow"></span><!--
         --></span><!--
-        --><span class="mainPanelElement" id="run" title="Run a test" tabindex="2"></span>
+        --><span class="mainPanelElement" id="run" title="Run a test" tabindex="1"></span>
     </div>
-    <div id="baselinePanel" class="notDisplayed">
+    <div id="baselinePanel" class="notDisplayed" tabindex="-1">
         <div class="selectionContainer defaultValuesContainer" tabindex="1"><!--
             --><input type="radio" name="userSelection" class="userSelection" id="defaultValuesSelection"><!--
             --><span>Use default values <span id="defaultValuesExplanation">(app name = URL domain, test name = URL path)</span></span><!--
