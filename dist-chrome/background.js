@@ -349,6 +349,10 @@ window.Applitools = (function () {
                                                             Applitools_._testEnded();
                                                         }
                                                     });
+                                            }).catch(function () {
+                                                deferred.reject();
+                                                Applitools_._onError("An error occurred while running '" +
+                                                    testParams.testName + "'.");
                                             });
                                     });
                                 }); // Capture visible tab
