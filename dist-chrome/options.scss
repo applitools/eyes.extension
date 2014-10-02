@@ -13,10 +13,12 @@ header {
   }
 }
 
+$OPTION_BORDER_COLOR: #b4b4b4;
+
 .optionContainer {
   width: 933px;
   height: 75px;
-  border: 1px solid #b4b4b4;
+  border: 1px solid $OPTION_BORDER_COLOR;
   margin-top: 30px;
   margin-left: 34px;
   padding: 18px 0 18px 27px;
@@ -46,11 +48,45 @@ header {
   margin-top: 10px;
 }
 
-
 .optionHelp {
   display: inline-block;
   width: 410px;
   height: 100%;
   font-size: 16px;
   padding: 0 40px 0;
+}
+
+#logsContainer {
+  margin-top: 28px;
+
+  .bar {
+    display: inline-block;
+    border: 1px solid $OPTION_BORDER_COLOR;
+
+    &.left {
+      margin-left: 34px;
+      width: 26px;
+    }
+
+    &.right {
+      width: 885px;
+    }
+  }
+
+  label {
+    vertical-align: middle;
+    font-size: 18px;
+    margin-left: 4px;
+    margin-right: 4px;
+  }
+}
+
+#runLogs {
+  display: block;
+  border: 1px solid $OPTION_BORDER_COLOR;
+  width: 893px;
+  height: 236px;
+  padding: 28px 40px 38px 27px;
+  margin-left: 34px;
+  margin-top: 11px;
 }
