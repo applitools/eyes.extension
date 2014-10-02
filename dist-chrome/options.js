@@ -82,13 +82,28 @@
     };
 
     /**
+     * Sets the required listeners on the restoreDefaultUrl button.
+     * @return {Promise} A promise which resolves when finished setting the listener.
+     * @private
+     */
+    var _initRestoreDefaultUrlButton = function () {
+        var restoreDefaultUrlButton = document.getElementById('restoreDefaultUrl');
+        restoreDefaultUrlButton.addEventListener('click', function () {
+            return ConfigurationStore.setEyesServerUrl(undefined).then(function () {
+                return _restoreEyesServer();
+            });
+        });
+        return RSVP.resolve();
+    };
+
+    /**
      * Loads the values and sets the required handlers of the option elements in the page.
      * @return {Array} An array of the initialized elements.
      * @private
      */
     var _initPage = function () {
         // We're done when ALL options are loaded.
-        return RSVP.all([_initNewTabForResults(), _initEyesServerUrl()]);
+        return RSVP.all([_initNewTabForResults(), _initEyesServerUrl(), _initRestoreDefaultUrlButton()]);
     };
 
     document.addEventListener('DOMContentLoaded', _initPage);

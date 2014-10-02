@@ -206,8 +206,8 @@
     };
 
     /**
-     * @param {string} eyesServerUrl The value to save. Undefined value will cause the predefined default to be
-     *                              set.
+     * @param {string|undefined} eyesServerUrl The value to save. Undefined value will cause the predefined default to
+     *                                          be set.
      * @return {Promise} A promise which resolves when the value is saved, or rejects otherwise.
      */
     ConfigurationStore.setEyesServerUrl = function (eyesServerUrl) {
