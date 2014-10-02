@@ -244,7 +244,7 @@
      * Saves the changes the user performed on the baseline panel (if valid) and shows the main panel. If changes were
      * not valid, it will NOT switch back to the main panel.
      * @return {Promise} A promise which resolves when the changes are saved and the main panel is set to be shown,
- *                          or rejected if the user provided values are invalid.
+     *                   or rejected if the user provided values are invalid.
      * @private
      */
     var _onBaselineOkayButtonClicked = function () {
