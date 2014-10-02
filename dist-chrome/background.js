@@ -284,6 +284,10 @@ window.Applitools = (function () {
             });
     };
 
+    /**
+     * Runs a test for a given tab.
+     * @return {Promise} A promise which resolves when the test ends (or rejects on error).
+     */
     Applitools_.runTest = function () {
         var deferred = RSVP.defer();
 
