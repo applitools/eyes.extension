@@ -26,7 +26,7 @@ window.Applitools = (function () {
     };
 
     /**
-     * Logs a message
+     * Logs a message.
      * @param {string} message The message to log
      * @return {Promise} A promise which resolves to the logged message.
      * @private
@@ -157,12 +157,13 @@ window.Applitools = (function () {
 
     /**
      * Get the JSON information of an existing session.
-     * @param sessionId The ID of the session which info we'd like to get.
+     * @param {string} domain The domain of the server from which to extract the session information.
+     * @param {string} sessionId The ID of the session which info we'd like to get.
      * @return {Promise} A promise which resolves to the JSON parsed session info.
      */
-    Applitools_._getSessionInfo = function (sessionId) {
+    Applitools_._getSessionInfo = function (domain, sessionId) {
         var deferred = RSVP.defer();
-        var sessionInfoUrl = 'https://eyes.applitools.com/api/sessions/' + sessionId + '.json';
+        var sessionInfoUrl = 'https://' + domain + '/api/sessions/' + sessionId + '.json';
         var infoRequest = new XMLHttpRequest();
         infoRequest.open('GET', sessionInfoUrl);
         //noinspection SpellCheckingInspection
@@ -198,23 +199,27 @@ window.Applitools = (function () {
             var testParamsPromise;
             if (selectionId === 'stepUrlSelection') {
                 testParamsPromise = ConfigurationStore.getBaselineStepUrl().then(function (stepUrl) {
+                    var domainRegexResult = /https?:\/\/([\w\.]+)?\//.exec(stepUrl);
                     var sessionIdRegexResult = /sessions\/(\d+)(?:\/|$)/.exec(stepUrl);
-                    if (!sessionIdRegexResult || sessionIdRegexResult.length !== 2) {
+                    if (!domainRegexResult || domainRegexResult.length !== 2 ||
+                            !sessionIdRegexResult || sessionIdRegexResult.length !== 2) {
                         return RSVP.reject(new Error('Invalid step URL: ' + stepUrl));
                     }
+                    var domain = domainRegexResult[1];
                     var sessionId = sessionIdRegexResult[1];
-                    return Applitools_._getSessionInfo(sessionId).then(function (sessionInfo) {
+                    return Applitools_._getSessionInfo(domain, sessionId).then(function (sessionInfo) {
                         var appName = sessionInfo.startInfo.appIdOrName;
                         var testName = sessionInfo.startInfo.scenarioIdOrName;
                         var branchName = sessionInfo.startInfo.branchName;
                         var parentBranchNAme = sessionInfo.startInfo.parentBranchName;
                         var os = sessionInfo.startInfo.environment.os;
                         var hostingApp = sessionInfo.startInfo.environment.hostingApp;
+                        var inferred = sessionInfo.startInfo.environment.inferred;
                         var viewportSize = {};
                         viewportSize.width = sessionInfo.startInfo.environment.displaySize.width;
                         viewportSize.height = sessionInfo.startInfo.environment.displaySize.height;
                         var testParams = {appName: appName, testName: testName, branchName: branchName,
-                            parentBranchName: parentBranchNAme, os: os, hostingApp: hostingApp,
+                            parentBranchName: parentBranchNAme, os: os, hostingApp: hostingApp, inferred: inferred,
                             viewportSize: viewportSize, matchLevel: matchLevel};
                         return RSVP.resolve(testParams);
                     });

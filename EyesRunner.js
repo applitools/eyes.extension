@@ -20,7 +20,13 @@
                 eyes.setMatchLevel(testParams.matchLevel);
                 eyes.setBranchName(testParams.branchName);
                 eyes.setParentBranchName(testParams.parentBranchName);
-                eyes.setInferredEnvironment("useragent:" + navigator.userAgent);
+                eyes.setOs(testParams.os);
+                eyes.setHostingApp(testParams.hostingApp);
+                if (testParams.inferred) {
+                    eyes.setInferredEnvironment(testParams.inferred);
+                } else {
+                    eyes.setInferredEnvironment("useragent:" + navigator.userAgent);
+                }
                 return eyes.open(testParams.appName, testParams.testName, testParams.viewportSize)
                     .then(function () {
                         return eyes.checkImage(image, tag, false, -1);
