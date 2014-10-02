@@ -11,6 +11,7 @@ window.Applitools = (function () {
         RSVP = require('rsvp');
 
     var _DEFAULT_BROWSER_ACTION_TOOLTIP = "Applitools Eyes. No tests are currently running.";
+    var _MAX_LOGS_COUNT = 100;
 
     //noinspection JSUnresolvedFunction,JSUnresolvedVariable
     chrome.browserAction.setTitle({title: _DEFAULT_BROWSER_ACTION_TOOLTIP});
@@ -31,7 +32,11 @@ window.Applitools = (function () {
      * @private
      */
     Applitools_._log = function (message) {
-        Applitools_.currentState.logs.push({timestamp: new Date(), messgae: message});
+        // If the logs are more than a given max, we remove the oldest ones.
+        var logsToRemoveCount =  Applitools_.currentState.logs.length - _MAX_LOGS_COUNT;
+        logsToRemoveCount = logsToRemoveCount > 0 ? logsToRemoveCount : 0;
+        Applitools_.currentState.logs = Applitools_.currentState.logs.slice(logsToRemoveCount);
+        Applitools_.currentState.logs.push({timestamp: new Date(), message: message});
         return RSVP.resolve(message);
     };
 
@@ -99,10 +104,11 @@ window.Applitools = (function () {
             errorMessage = 'Unknown error occurred.';
         }
         errorMessage = 'Error: ' + errorMessage;
-        Applitools_.currentState.logs.push(errorMessage);
-        Applitools_.currentState.showErrorBadge = true;
-        return Applitools_._updateBrowserActionBadge(true).then(function () {
-            return Applitools_._testEnded();
+        return Applitools_._log(errorMessage).then(function () {
+            Applitools_.currentState.showErrorBadge = true;
+            return Applitools_._updateBrowserActionBadge(true).then(function () {
+                return Applitools_._testEnded();
+            });
         });
     };
 
@@ -123,8 +129,10 @@ window.Applitools = (function () {
      */
     Applitools_._testStarted = function () {
         Applitools_.currentState.runningTestsCount++;
-        return Applitools_._updateBrowserActionBadge(false).then(function () {
-            return RSVP.resolve(Applitools_.currentState.runningTestsCount);
+        return Applitools_._log("Test started").then(function () {
+            return Applitools_._updateBrowserActionBadge(false).then(function () {
+                return RSVP.resolve(Applitools_.currentState.runningTestsCount);
+            });
         });
     };
 
@@ -140,8 +148,10 @@ window.Applitools = (function () {
             Applitools_.currentState.runningTestsCount = 0;
         }
 
-        return Applitools_._updateBrowserActionBadge(false).then(function () {
-            return RSVP.resolve(Applitools_.currentState.runningTestsCount);
+        return Applitools_._log("Test ended").then(function () {
+            return Applitools_._updateBrowserActionBadge(false).then(function () {
+                return RSVP.resolve(Applitools_.currentState.runningTestsCount);
+            });
         });
     };
 
@@ -366,13 +376,15 @@ window.Applitools = (function () {
                                     height: originalWindowHeight});
                             restoredWindowPromise.then(function () {
                                 deferred.reject();
-                                Applitools_._onError('Failed to set viewport size.');
+                                Applitools_._onError('Failed to set viewport size ' + requiredViewportSize.width + 'x' +
+                                                        requiredViewportSize.height + ' (got ' + resizedTab.width +
+                                                        'x' + resizedTab.height + ' instead)');
                             });
                         });
                     });
                 }).catch(function (err) { // Handling test parameters extraction failure.
                     deferred.reject(err);
-                    Applitools_._onError('Failed to extract parameters the step URL: ' +  err);
+                    Applitools_._onError('Failed to extract test parameters: ' +  err);
                 });
             }); // Get baseline selection
         });

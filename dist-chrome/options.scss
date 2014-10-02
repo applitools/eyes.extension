@@ -1,4 +1,4 @@
-@import "base";
+@import "../base";
 
 header {
   height: 86px;
@@ -46,6 +46,7 @@ $OPTION_BORDER_COLOR: #b4b4b4;
 #restoreDefaultUrl {
   @include classicButton;
   margin-top: 10px;
+  margin-left: 114px;
 }
 
 .optionHelp {

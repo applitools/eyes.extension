@@ -8,6 +8,8 @@
     var ConfigurationStore = require('./../ConfigurationStore.js'),
         RSVP = require('rsvp');
 
+    //noinspection JSUnresolvedVariable,JSUnresolvedFunction
+    var Applitools = chrome.extension.getBackgroundPage().Applitools;
 
     /**
      * Sets whether or not a new tab should be opened for showing results on test end.
@@ -97,13 +99,29 @@
     };
 
     /**
+     * Loads logs into the logs section.
+     * @return {Promise} A promise which resolves when the logs are loaded.
+     * @private
+     */
+    var _restoreLogs = function () {
+        var logsElement = document.getElementById("runLogs");
+        var logs = Applitools.currentState.logs;
+        //noinspection JSLint
+        for (var i=0; i<logs.length; ++i) {
+            var currentLog = logs[i];
+            logsElement.value += currentLog.timestamp + "\t" + currentLog.message + "\r\n";
+        }
+        return RSVP.resolve();
+    };
+
+    /**
      * Loads the values and sets the required handlers of the option elements in the page.
      * @return {Array} An array of the initialized elements.
      * @private
      */
     var _initPage = function () {
         // We're done when ALL options are loaded.
-        return RSVP.all([_initNewTabForResults(), _initEyesServerUrl(), _initRestoreDefaultUrlButton()]);
+        return RSVP.all([_initNewTabForResults(), _initEyesServerUrl(), _initRestoreDefaultUrlButton(), _restoreLogs()]);
     };
 
     document.addEventListener('DOMContentLoaded', _initPage);
