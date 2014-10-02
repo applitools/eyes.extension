@@ -264,7 +264,7 @@
             }
             selectionId = stepUrlSelectionElement.id;
         } else if (userValuesSelectionElement.checked) {
-            if (!appName.trim() && !testName.trim()) {
+            if (!appName.trim() || !testName.trim()) {
                 return RSVP.reject(new Error('Invalid application/test name'));
             }
             selectionId = userValuesSelectionElement.id;
@@ -335,6 +335,22 @@
     };
 
     /**
+     * Sets an event listener on an element which checks if the Return key was pressed. If so, it's as if the okay
+     * button was clicked.
+     * @param element The DOM element to set the listener on.
+     * @private
+     */
+    var _makeOkayable = function (element) {
+        // If the user pressed enter on one of the inputs
+        element.addEventListener('keypress', function (event) {
+            if (event.keyCode === 13) {
+                _onBaselineOkayButtonClicked();
+            }
+        });
+        return RSVP.resolve(element);
+    };
+
+    /**
      * Initializes the user selection elements (which one is selected, and the current value, if exists).
      * @return {Promise} A promise which resolves to the checked element initialization is done.
      * @private
@@ -350,27 +366,34 @@
         return ConfigurationStore.getBaselineStepUrl().then(function (stepUrl) {
             stepUrlInput.value = stepUrl || '';
             stepUrlInput.addEventListener('click', _onBaselineStepUrlSelected);
-            stepUrlInput.addEventListener('change', _onBaselineStepUrlSelected);
-            return ConfigurationStore.getBaselineAppName();
+            stepUrlInput.addEventListener('keypress', _onBaselineStepUrlSelected);
+            return _makeOkayable(stepUrlInput).then(function () {
+                return ConfigurationStore.getBaselineAppName();
+            });
         }).then(function (appName) {
             appNameInput.value = appName || '';
             appNameInput.addEventListener('click', _onBaselineAppNameSelected);
-            appNameInput.addEventListener('change', _onBaselineAppNameSelected);
-            return ConfigurationStore.getBaselineTestName();
+            appNameInput.addEventListener('keypress', _onBaselineAppNameSelected);
+            return _makeOkayable(appNameInput).then(function () {
+                return ConfigurationStore.getBaselineTestName();
+            });
         }).then(function (testName) {
             testNameInput.value = testName || '';
             testNameInput.addEventListener('click', _onBaselineTestNameSelected);
-            testNameInput.addEventListener('change', _onBaselineTestNameSelected);
-            return ConfigurationStore.getBaselineSelection();
+            testNameInput.addEventListener('keypress', _onBaselineTestNameSelected);
+            return _makeOkayable(testNameInput).then(function() {
+                return ConfigurationStore.getBaselineSelection();
+            });
         }).then(function (selectionId) {
             // Setting behavior for the default selection container.
             defaultValuesSelectionContainer.addEventListener('focus', _onBaselineDefaultSelectionSelected);
-
-            // If we don't have a selection Id, we'll assume that the default is selected
-            var checkedElement = selectionId ? document.getElementById(selectionId) :
-                                                _getDefaultValuesSelectionElement();
-            checkedElement.checked = true;
-            return RSVP.resolve(checkedElement);
+            return _makeOkayable(defaultValuesSelectionContainer).then(function () {
+                // If we don't have a selection Id, we'll assume that the default is selected
+                var checkedElement = selectionId ? document.getElementById(selectionId) :
+                    _getDefaultValuesSelectionElement();
+                checkedElement.checked = true;
+                return RSVP.resolve(checkedElement);
+            });
         });
     };
 
