@@ -457,7 +457,11 @@
                     //noinspection JSUnresolvedVariable
                     chrome.tabs.create({windowId: currentTab.windowId, url: _APPLITOOLS_LOGIN_URL, active: true},
                         function () {
-                            deferred.resolve();
+                            Applitools.updateBrowserActionBadge(true,
+                                "You must be signed in to Applitools in order to use this extension.").
+                                then(function () {
+                                    deferred.resolve();
+                                });
                         });
                     return deferred.promise;
                 }

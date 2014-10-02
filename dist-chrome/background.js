@@ -52,17 +52,21 @@ window.Applitools = (function () {
     };
 
     /**
-     * Updates the browser action badge.
+     * Updates the browser action badge and title.
      * @param {boolean} isError Whether to display an error notification or a normal notification (if required).
+     * @param {string} title (Optional) If defined, the browser action title will be set to this title.
      * @return {Promise} A promise which resolves when the badge is set.
      * @private
      */
-    Applitools_._updateBrowserActionBadge = function (isError) {
+    Applitools_.updateBrowserActionBadge = function (isError, title) {
         if (isError) {
             //noinspection JSUnresolvedFunction,JSUnresolvedVariable
             chrome.browserAction.setBadgeBackgroundColor({color: [255, 255, 0, 255]});
+            if (!title) {
+                title = 'An error occurred. Logs are available in the options page.';
+            }
             //noinspection JSUnresolvedFunction,JSUnresolvedVariable
-            chrome.browserAction.setTitle({title: 'An error occurred. Logs are available in the options page.'});
+            chrome.browserAction.setTitle({title: title});
             //noinspection JSUnresolvedFunction,JSUnresolvedVariable
             chrome.browserAction.setBadgeText({text: '!'});
             return RSVP.resolve();
@@ -81,9 +85,11 @@ window.Applitools = (function () {
             chrome.browserAction.setBadgeBackgroundColor({color: [0, 0, 255, 127]});
             //noinspection JSUnresolvedVariable,JSUnresolvedFunction
             chrome.browserAction.setBadgeText({text: Applitools_.currentState.runningTestsCount.toString()});
+            if (!title) {
+                title = 'Number of running tests: ' + Applitools_.currentState.runningTestsCount;
+            }
             //noinspection JSUnresolvedVariable,JSUnresolvedFunction
-            chrome.browserAction.setTitle({title: 'Number of running tests: ' +
-                Applitools_.currentState.runningTestsCount});
+            chrome.browserAction.setTitle({title: title});
         } else { // No running tests
             //noinspection JSUnresolvedFunction,JSUnresolvedVariable
             chrome.browserAction.setBadgeText({text: ''});
@@ -106,7 +112,7 @@ window.Applitools = (function () {
         errorMessage = 'Error: ' + errorMessage;
         return Applitools_._log(errorMessage).then(function () {
             Applitools_.currentState.showErrorBadge = true;
-            return Applitools_._updateBrowserActionBadge(true).then(function () {
+            return Applitools_.updateBrowserActionBadge(true, undefined).then(function () {
                 return Applitools_._testEnded();
             });
         });
@@ -119,7 +125,7 @@ window.Applitools = (function () {
     Applitools_.onPopupOpen = function () {
         // If there was an error badge, we can stop displaying it.
         Applitools_.currentState.showErrorBadge = false;
-        return Applitools_._updateBrowserActionBadge(false);
+        return Applitools_.updateBrowserActionBadge(false, undefined);
     };
 
     /**
@@ -130,7 +136,7 @@ window.Applitools = (function () {
     Applitools_._testStarted = function () {
         Applitools_.currentState.runningTestsCount++;
         return Applitools_._log("Test started").then(function () {
-            return Applitools_._updateBrowserActionBadge(false).then(function () {
+            return Applitools_.updateBrowserActionBadge(false, undefined).then(function () {
                 return RSVP.resolve(Applitools_.currentState.runningTestsCount);
             });
         });
@@ -149,7 +155,7 @@ window.Applitools = (function () {
         }
 
         return Applitools_._log("Test ended").then(function () {
-            return Applitools_._updateBrowserActionBadge(false).then(function () {
+            return Applitools_.updateBrowserActionBadge(false, undefined).then(function () {
                 return RSVP.resolve(Applitools_.currentState.runningTestsCount);
             });
         });
