@@ -12,7 +12,7 @@
     var Applitools = chrome.extension.getBackgroundPage().Applitools;
 
     var _NOT_DISPLAYED_CLASS = "notDisplayed";
-
+    var _APPLITOOLS_LOGIN_URL = 'https://applitools.com/login/';
 
     /**
      * Sets the options for a select html element (options' values are also the options' texts).
@@ -427,8 +427,20 @@
      */
     var _initPage = function () {
         return _getCurrentTab().then(function (currentTab) {
-            return Applitools.setTabToTest(currentTab).then(function () {
-                return RSVP.all([_initMainPanel(), _initBaselinePanel(), Applitools.onPopupOpen()]);
+            // Making sure that API key is available.
+            return ConfigurationStore.getApiKey().then(function (apiKey) {
+                if (!apiKey) {
+                    var deferred = RSVP.defer();
+                    //noinspection JSUnresolvedVariable
+                    chrome.tabs.create({windowId: currentTab.windowId, url: _APPLITOOLS_LOGIN_URL, active: true},
+                        function () {
+                            deferred.resolve();
+                        });
+                    return deferred.promise;
+                }
+                return Applitools.setTabToTest(currentTab).then(function () {
+                    return RSVP.all([_initMainPanel(), _initBaselinePanel(), Applitools.onPopupOpen()]);
+                });
             });
         });
     };
