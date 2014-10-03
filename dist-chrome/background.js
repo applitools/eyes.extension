@@ -54,7 +54,7 @@ window.Applitools = (function () {
     /**
      * Updates the browser action badge and title.
      * @param {boolean} isError Whether to display an error notification or a normal notification (if required).
-     * @param {string} title (Optional) If defined, the browser action title will be set to this title.
+     * @param {string|undefined} title (Optional) The browser action title will be set to this title.
      * @return {Promise} A promise which resolves when the badge is set.
      * @private
      */
