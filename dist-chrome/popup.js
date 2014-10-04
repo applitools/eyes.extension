@@ -257,10 +257,13 @@
         appName = _getAppNameInputElement().value;
         testName = _getTestNameInputElement().value;
 
-        // TODO Daniel - Find a better way to handle validation of the values.
         if (stepUrlSelectionElement.checked) {
             if (!stepUrl) {
-                return RSVP.reject(new Error('Invalid step URL'));
+                return RSVP.reject(new Error('Invalid step URL: ' + stepUrl));
+            }
+            // Verifying given value is in a valid step URL format.
+            if (!Applitools.extractStepUrlParameters(stepUrl)) {
+                return RSVP.reject(new Error('Invalid step URL: ' + stepUrl))
             }
             selectionId = stepUrlSelectionElement.id;
         } else if (userValuesSelectionElement.checked) {

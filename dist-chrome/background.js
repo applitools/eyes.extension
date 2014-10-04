@@ -100,6 +100,34 @@ window.Applitools = (function () {
     };
 
     /**
+     * Extracts the relevant parts of a given URL.
+     * @param stepUrl The url from which to extract parameters.
+     * @return {object|null} An object containing the relevant parameters, or null if the URL is not in the correct
+     *                          format.
+     */
+    Applitools_.extractStepUrlParameters = function (stepUrl) {
+        var domainRegexResult = /https?:\/\/([\w\.]+)?\//.exec(stepUrl);
+        var sessionIdRegexResult = /sessions\/(\d+)(?:\/|$)/.exec(stepUrl);
+        if (!domainRegexResult || domainRegexResult.length !== 2 ||
+                !sessionIdRegexResult || sessionIdRegexResult.length !== 2) {
+            return null;
+        }
+        var domain = domainRegexResult[1];
+        var sessionId = sessionIdRegexResult[1];
+        return {domain: domain, sessionId: sessionId};
+    };
+
+    /**
+     * Notifies the background script that the popup page had been opened.
+     * @return {Promise} A promise which resolves when finished the required handling.
+     */
+    Applitools_.onPopupOpen = function () {
+        // If there was an error badge, we can stop displaying it.
+        Applitools_.currentState.showErrorBadge = false;
+        return Applitools_.updateBrowserActionBadge(false, undefined);
+    };
+
+    /**
      * Processes an error.
      * @param {String} errorMessage The message describing the error.
      * @return {Promise} A promise which resolves when finished the required operations onError.
@@ -116,16 +144,6 @@ window.Applitools = (function () {
                 return Applitools_._testEnded();
             });
         });
-    };
-
-    /**
-     * Notifies the background script that the popup page had been opened.
-     * @return {Promise} A promise which resolves when finished the required handling.
-     */
-    Applitools_.onPopupOpen = function () {
-        // If there was an error badge, we can stop displaying it.
-        Applitools_.currentState.showErrorBadge = false;
-        return Applitools_.updateBrowserActionBadge(false, undefined);
     };
 
     /**
@@ -205,14 +223,12 @@ window.Applitools = (function () {
             var testParamsPromise;
             if (selectionId === 'stepUrlSelection') {
                 testParamsPromise = ConfigurationStore.getBaselineStepUrl().then(function (stepUrl) {
-                    var domainRegexResult = /https?:\/\/([\w\.]+)?\//.exec(stepUrl);
-                    var sessionIdRegexResult = /sessions\/(\d+)(?:\/|$)/.exec(stepUrl);
-                    if (!domainRegexResult || domainRegexResult.length !== 2 ||
-                            !sessionIdRegexResult || sessionIdRegexResult.length !== 2) {
+                    var stepUrlParams = Applitools_.extractStepUrlParameters(stepUrl);
+                    if (!stepUrlParams) {
                         return RSVP.reject(new Error('Invalid step URL: ' + stepUrl));
                     }
-                    var domain = domainRegexResult[1];
-                    var sessionId = sessionIdRegexResult[1];
+                    var domain = stepUrlParams.domain;
+                    var sessionId = stepUrlParams.sessionId;
                     return Applitools_._getSessionInfo(domain, sessionId).then(function (sessionInfo) {
                         var appName = sessionInfo.startInfo.appIdOrName;
                         var testName = sessionInfo.startInfo.scenarioIdOrName;
