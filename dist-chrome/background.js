@@ -40,6 +40,18 @@ window.Applitools = (function () {
         return RSVP.resolve(message);
     };
 
+    /**
+     * Creates a log message from the given parameters.
+     * @param appName The application name of the test.
+     * @param testName The test name.
+     * @param message The message to be logged.
+     * @return {string} A log message which includes the application and test name.
+     * @private
+     */
+    Applitools_._buildLogMessage = function (appName, testName, message) {
+        return "'" + testName + "'" + " of '" + appName + "': " + message;
+    };
+
     //noinspection JSValidateJSDoc
     /**
      * Sets the tab to be tested.
@@ -129,19 +141,21 @@ window.Applitools = (function () {
 
     /**
      * Processes an error.
-     * @param {String} errorMessage The message describing the error.
+     * @param {string} errorMessage The message describing the error.
+     * @param {string|undefined} appName (Optional) The test's application name .
+     * @param {string|undefined} testName (Optional) The test name.
      * @return {Promise} A promise which resolves when finished the required operations onError.
      * @private
      */
-    Applitools_._onError = function (errorMessage) {
+    Applitools_._onError = function (errorMessage, appName, testName) {
         if (!errorMessage) {
             errorMessage = 'Unknown error occurred.';
         }
-        errorMessage = 'Error: ' + errorMessage;
+        errorMessage = Applitools_._buildLogMessage(appName, testName, 'Error: ' + errorMessage);
         return Applitools_._log(errorMessage).then(function () {
             Applitools_.currentState.showErrorBadge = true;
             return Applitools_.updateBrowserActionBadge(true, undefined).then(function () {
-                return Applitools_._testEnded();
+                return Applitools_._testEnded(appName, testName);
             });
         });
     };
@@ -162,17 +176,23 @@ window.Applitools = (function () {
 
     /**
      * Updates relevant items when a test is ended.
+     * @param {string|undefined} appName (Optional) The application name of the test.
+     * @param {string|undefined} testName (Optional) The test name.
      * @return {Promise} A promise which resolves to the number the current tests count.
      * @private
      */
-    Applitools_._testEnded = function () {
+    Applitools_._testEnded = function (appName, testName) {
         Applitools_.currentState.runningTestsCount--;
 
         if (Applitools_.currentState.runningTestsCount <= 0) {
             Applitools_.currentState.runningTestsCount = 0;
         }
 
-        return Applitools_._log("Test ended").then(function () {
+        var logMessage = "Test ended"; // default message
+        if (appName || testName) {
+            logMessage = Applitools_._buildLogMessage(appName, testName, logMessage);
+        }
+        return Applitools_._log(logMessage).then(function () {
             return Applitools_.updateBrowserActionBadge(false, undefined).then(function () {
                 return RSVP.resolve(Applitools_.currentState.runningTestsCount);
             });
@@ -335,6 +355,10 @@ window.Applitools = (function () {
             var originalWindowHeight = originalWindow.height;
             ConfigurationStore.getBaselineSelection().then(function (selectionId) {
                 Applitools_._getTestParameters(url, selectionId).then(function (testParams) {
+                    var testParamsLogMessage = Applitools_._buildLogMessage(testParams.appName, testParams.testName,
+                        "Got tests parameters");
+                    Applitools_._log(testParamsLogMessage);
+
                     var requiredViewportSize = testParams.viewportSize;
                     var updatedWindowPromise;
                     var isNewWindowCreated;
@@ -383,17 +407,19 @@ window.Applitools = (function () {
                                                             chrome.tabs.create({windowId: originalWindowId, url: testResults.url, active: false},
                                                                 function () {
                                                                     deferred.resolve(testResults);
-                                                                    Applitools_._testEnded();
+                                                                    Applitools_._testEnded(testParams.appName,
+                                                                        testParams.testName);
                                                                 });
                                                         } else {
                                                             deferred.resolve(testResults);
-                                                            Applitools_._testEnded();
+                                                            Applitools_._testEnded(testParams.appName,
+                                                                testParams.testName);
                                                         }
                                                     });
                                             }).catch(function () {
                                                 deferred.reject();
-                                                Applitools_._onError("An error occurred while running '" +
-                                                    testParams.testName + "'.");
+                                                Applitools_._onError("An error occurred while running the test.'",
+                                                    testParams.appName, testParams.testName);
                                             });
                                     });
                                 }); // Capture visible tab
@@ -408,14 +434,14 @@ window.Applitools = (function () {
                             restoredWindowPromise.then(function () {
                                 deferred.reject();
                                 Applitools_._onError('Failed to set viewport size ' + requiredViewportSize.width + 'x' +
-                                                        requiredViewportSize.height + ' (got ' + resizedTab.width +
-                                                        'x' + resizedTab.height + ' instead)');
+                                    requiredViewportSize.height + ' (got ' + resizedTab.width +
+                                    'x' + resizedTab.height + ' instead)', testParams.appName, testParams.testName);
                             });
                         });
                     });
                 }).catch(function (err) { // Handling test parameters extraction failure.
                     deferred.reject(err);
-                    Applitools_._onError('Failed to extract test parameters: ' +  err);
+                    Applitools_._onError('Failed to extract test parameters: ' +  err, undefined, undefined);
                 });
             }); // Get baseline selection
         });
