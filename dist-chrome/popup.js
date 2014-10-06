@@ -274,6 +274,7 @@
         appName = _getAppNameInputElement().value;
         testName = _getTestNameInputElement().value;
 
+        // For the selected type of input we want to make sure values are valid.
         if (stepUrlSelectionElement.checked) {
             if (!stepUrl || !Applitools.extractStepUrlParameters(stepUrl)) {
                 return _highlightInvalidInput(_getStepUrlInputElement()).then(function () {
