@@ -196,6 +196,11 @@ $BUTTON_HOVER_FONT_COLOR: #0b7ba2;
   .userInput {
     background-color: #f9f9f9;
     border: solid 1px #a8a8a8;
+    @include transitionalProperty(background-color, 1s)
+  }
+
+  .invalidInput {
+    background-color: rgb(246, 90, 90);
   }
 
   .shortInput {

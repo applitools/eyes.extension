@@ -12,6 +12,7 @@
     var Applitools = chrome.extension.getBackgroundPage().Applitools;
 
     var _NOT_DISPLAYED_CLASS = "notDisplayed";
+    var _INVALID_INPUT_CLASS = "invalidInput";
     var _APPLITOOLS_LOGIN_URL = 'https://applitools.com/login/';
 
     /**
@@ -241,6 +242,22 @@
     };
 
     /**
+     * Highlight the given input to notify the user that the value input is invalid.
+     * @param inputElement The input element to highlight.
+     * @return {Promise} A promise which resolves when the highlighting is finished.
+     * @private
+     */
+    var _highlightInvalidInput = function (inputElement) {
+        inputElement.classList.add(_INVALID_INPUT_CLASS);
+        var deferred = RSVP.defer();
+        setTimeout(function () {
+            inputElement.classList.remove(_INVALID_INPUT_CLASS);
+            deferred.resolve();
+        },500);
+        return deferred.promise;
+    };
+
+    /**
      * Saves the changes the user performed on the baseline panel (if valid) and shows the main panel. If changes were
      * not valid, it will NOT switch back to the main panel.
      * @return {Promise} A promise which resolves when the changes are saved and the main panel is set to be shown,
@@ -258,18 +275,34 @@
         testName = _getTestNameInputElement().value;
 
         if (stepUrlSelectionElement.checked) {
-            if (!stepUrl) {
-                return RSVP.reject(new Error('Invalid step URL: ' + stepUrl));
-            }
-            // Verifying given value is in a valid step URL format.
-            if (!Applitools.extractStepUrlParameters(stepUrl)) {
-                return RSVP.reject(new Error('Invalid step URL: ' + stepUrl))
+            if (!stepUrl || !Applitools.extractStepUrlParameters(stepUrl)) {
+                return _highlightInvalidInput(_getStepUrlInputElement()).then(function () {
+                    return RSVP.reject(new Error('Invalid step URL: ' + stepUrl));
+                });
             }
             selectionId = stepUrlSelectionElement.id;
         } else if (userValuesSelectionElement.checked) {
-            if (!appName.trim() || !testName.trim()) {
-                return RSVP.reject(new Error('Invalid application/test name'));
+            var rejectedUserValuesPromise = RSVP.resolve();
+            var invalidUserValuesFound = false;
+            if (!appName.trim()) {
+                invalidUserValuesFound = true;
+                rejectedUserValuesPromise = rejectedUserValuesPromise.then(function () {
+                    _highlightInvalidInput(_getAppNameInputElement());
+                });
             }
+            if (!testName.trim()) {
+                invalidUserValuesFound = true;
+                rejectedUserValuesPromise = rejectedUserValuesPromise.then(function () {
+                    _highlightInvalidInput(_getTestNameInputElement());
+                });
+            }
+            if (invalidUserValuesFound) {
+                rejectedUserValuesPromise = rejectedUserValuesPromise.then(function () {
+                    return RSVP.reject(new Error('Invalid application/test name'));
+                });
+                return rejectedUserValuesPromise;
+            }
+
             selectionId = userValuesSelectionElement.id;
         }
 

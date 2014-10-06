@@ -19,6 +19,12 @@
   }
 }
 
+//noinspection CssUnknownProperty
+@mixin transitionalProperty($property, $duration) {
+  transition-property: $property;
+  transition-duration: $duration;
+}
+
 body {
   margin: 0;
   font: 12px "Open Sans", sans-serif;
