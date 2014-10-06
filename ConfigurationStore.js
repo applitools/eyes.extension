@@ -40,7 +40,8 @@
      * @type {string[]}
      * @private
      */
-    var _viewportSizes  = ['800x600', '1024x768'];
+    var _viewportSizes  = ['320x480', '320x533', '320x568', '360x640', '600x1024', '768x1024', '800x600', '900x650',
+                            '1024x600', '1180x700', '1260x660', '1800x950'];
     var _DEFAULT_VIEWPORT_SIZE = '800x600';
 
     var _DEFAULT_NEW_TAB_FOR_RESULTS = true;
