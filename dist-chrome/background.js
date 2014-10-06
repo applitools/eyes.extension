@@ -418,7 +418,7 @@ window.Applitools = (function () {
                                                     });
                                             }).catch(function () {
                                                 deferred.reject();
-                                                Applitools_._onError("An error occurred while running the test.'",
+                                                Applitools_._onError("An error occurred while running the test.",
                                                     testParams.appName, testParams.testName);
                                             });
                                     });
