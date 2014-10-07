@@ -72,8 +72,9 @@ window.Applitools = (function () {
      */
     Applitools_.updateBrowserActionBadge = function (isError, title) {
         if (isError) {
+            // Color is in RGBA format.
             //noinspection JSUnresolvedFunction,JSUnresolvedVariable
-            chrome.browserAction.setBadgeBackgroundColor({color: [255, 255, 0, 255]});
+            chrome.browserAction.setBadgeBackgroundColor({color: [255, 0, 0, 255]});
             if (!title) {
                 title = 'An error occurred. Logs are available in the options page.';
             }
