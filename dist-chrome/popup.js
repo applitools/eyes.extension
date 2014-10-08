@@ -13,6 +13,7 @@
 
     var _NOT_DISPLAYED_CLASS = "notDisplayed";
     var _INVALID_INPUT_CLASS = "invalidInput";
+    var _SELECTED_CLASS = "selected";
     var _APPLITOOLS_LOGIN_URL = 'https://applitools.com/login/';
 
     /**
@@ -332,12 +333,40 @@
     };
 
     /**
+     * Updates styling for the now unselected elements.
+     * @param elements The list of elements update.
+     * @private
+     */
+    var _onInputElementsUnSelected = function (elements) {
+        for (var i=0; i<elements.length; ++i) {
+            var currentElement = elements[i];
+            currentElement.classList.remove(_SELECTED_CLASS);
+        }
+    };
+
+    /**
+     * Updates styling for selected input elements.
+     * @param elements The list of elements to update.
+     * @private
+     */
+    var _onInputElementsSelected = function (elements) {
+        for (var i=0; i<elements.length; ++i) {
+            var currentElement = elements[i];
+            if (!currentElement.contains(_SELECTED_CLASS)) {
+                currentElement.classList.add(_SELECTED_CLASS);
+            }
+        }
+    };
+
+    /**
      * Handle user change of the step url input.
      * @return {Promise} A promise which resolves to the element.
      * @private
      */
     var _onBaselineStepUrlSelected = function () {
         _getStepUrlSelectionElement().checked = true;
+        _onInputElementsSelected([_getStepUrlInputElement()]);
+        _onInputElementsUnSelected([_getAppNameInputElement(), _getTestNameInputElement()]);
         return RSVP.resolve(_getStepUrlInputElement());
     };
 
@@ -348,6 +377,8 @@
      */
     var _onBaselineAppNameSelected = function () {
         _getUserValuesSelectionElement().checked = true;
+        _onInputElementsSelected([_getAppNameInputElement(), _getTestNameInputElement()]);
+        _onInputElementsUnSelected([_getStepUrlInputElement()]);
         return RSVP.resolve(_getAppNameInputElement());
     };
 
@@ -358,6 +389,8 @@
      */
     var _onBaselineTestNameSelected = function () {
         _getUserValuesSelectionElement().checked = true;
+        _onInputElementsSelected([_getAppNameInputElement(), _getTestNameInputElement()]);
+        _onInputElementsUnSelected([_getStepUrlInputElement()]);
         return RSVP.resolve(_getTestNameInputElement());
     };
 
@@ -368,9 +401,11 @@
      */
     var _onBaselineDefaultSelectionSelected = function () {
         _getDefaultValuesSelectionElement().checked = true;
+        _onInputElementsUnSelected([_getStepUrlInputElement(), _getAppNameInputElement(), _getTestNameInputElement()]);
         return RSVP.resolve(_getDefaultValuesSelectionContainer());
     };
 
+    //noinspection SpellCheckingInspection
     /**
      * Sets an event listener on an element which checks if the Return key was pressed. If so, it's as if the okay
      * button was clicked.
@@ -422,14 +457,32 @@
                 return ConfigurationStore.getBaselineSelection();
             });
         }).then(function (selectionId) {
-            // Setting behavior for the default selection container.
+            // When clicking on the the radio buttons, we also want the input boxes to behave properly.
+            _getDefaultValuesSelectionElement().addEventListener('click', _onBaselineDefaultSelectionSelected);
+            _getStepUrlSelectionElement().addEventListener('click', _onBaselineStepUrlSelected);
+            _getUserValuesSelectionElement().addEventListener('click', _onBaselineAppNameSelected);
+            // Default values should be select also when we tab-moved into the default values container.
             defaultValuesSelectionContainer.addEventListener('focus', _onBaselineDefaultSelectionSelected);
+            // Making the Selections acceptable by clicking "Return.
             return _makeOkayable(defaultValuesSelectionContainer).then(function () {
-                // If we don't have a selection Id, we'll assume that the default is selected
-                var checkedElement = selectionId ? document.getElementById(selectionId) :
-                    _getDefaultValuesSelectionElement();
-                checkedElement.checked = true;
-                return RSVP.resolve(checkedElement);
+                return _makeOkayable(_getUserValuesSelectionElement()).then(function () {
+                    return _makeOkayable(_getStepUrlSelectionElement()).then(function () {
+                        // If we don't have a selection Id, we'll assume that the default is selected
+                        var checkedElement = selectionId ? document.getElementById(selectionId) :
+                            _getDefaultValuesSelectionElement();
+                        var selectionPromise;
+                        if (selectionId === 'userValuesSelection') {
+                            selectionPromise = _onBaselineAppNameSelected();
+                        } else if (selectionId === 'stepUrlSelection') {
+                            selectionPromise = _onBaselineStepUrlSelected();
+                        } else {
+                            selectionPromise = _onBaselineDefaultSelectionSelected();
+                        }
+                        return selectionPromise.then(function () {
+                            RSVP.resolve(checkedElement);
+                        });
+                    });
+                });
             });
         });
     };

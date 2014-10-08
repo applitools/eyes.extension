@@ -25,10 +25,12 @@
   transition-duration: $duration;
 }
 
+$DEFAULT_FONT_COLOR: #454545;
+
 body {
   margin: 0;
   font: 12px "Open Sans", sans-serif;
-  color: #454545;
+  color: $DEFAULT_FONT_COLOR;
 }
 
 .notDisplayed {

@@ -27,18 +27,18 @@
             --><input type="radio" name="userSelection" class="userSelection" id="defaultValuesSelection"><!--
             --><span>Use default values <span id="defaultValuesExplanation">(app name = URL domain, test name = URL path)</span></span><!--
         --></div>
-        <div class="selectionContainer userValuesContainer"><!--
-            --><input type="radio" name="userSelection" class="userSelection" id="userValuesSelection"><!--
-            --><input type="text" class="userInput shortInput" name="appName" id="appName" placeholder="Application Name" tabindex="2"><!--
-            --><input type="text" class="userInput shortInput" name="testName" id="testName" placeholder="Test Name" tabindex="3"><!--
+        <div class="selectionContainer userValuesContainer" tabindex="-1"><!--
+            --><input type="radio" name="userSelection" class="userSelection" id="userValuesSelection" tabindex="2"><!--
+            --><input type="text" class="userInput shortInput" name="appName" id="appName" placeholder="Application Name" tabindex="3"><!--
+            --><input type="text" class="userInput shortInput" name="testName" id="testName" placeholder="Test Name" tabindex="4"><!--
         --></div>
-        <div class="selectionContainer stepUrlContainer"><!--
-            --><input type="radio" name="userSelection" class="userSelection" id="stepUrlSelection"><!--
-            --><input type="url" class="userInput longInput" name="stepUrl" id="stepUrl" placeholder="Test step URL" title="A URL to a step in an existing test, which will be used as a baseline." tabindex="4">
+        <div class="selectionContainer stepUrlContainer" tabindex="-1"><!--
+            --><input type="radio" name="userSelection" class="userSelection" id="stepUrlSelection" tabindex="5"><!--
+            --><input type="url" class="userInput longInput" name="stepUrl" id="stepUrl" placeholder="Test step URL" title="A URL to a step in an existing test, which will be used as a baseline." tabindex="6">
         </div>
         <div class="decisionButtonsContainer"><!--
-            --><button class="decisionButton" id="baselineOk" tabindex="6">OK</button><!--
-            --><button class="decisionButton" id="baselineCancel" tabindex="5">Cancel</button>
+            --><button class="decisionButton" id="baselineOk" tabindex="8">OK</button><!--
+            --><button class="decisionButton" id="baselineCancel" tabindex="7">Cancel</button>
         </div>
     </div>
     <script src="compiled/bf-popup.js"></script>

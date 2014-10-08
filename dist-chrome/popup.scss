@@ -173,6 +173,7 @@ $BUTTON_HOVER_FONT_COLOR: #0b7ba2;
     border-bottom: solid 1px #a8a8a8;
     height: 52px;
     padding-right: 18px;
+    outline: none;
   }
 
   .defaultValuesContainer {
@@ -192,10 +193,18 @@ $BUTTON_HOVER_FONT_COLOR: #0b7ba2;
   }
 
   .userInput {
-    background-color: #f9f9f9;
+    background-color: #eeeeee;
+    font-style: italic;
+    color: #9b9b9b;
     border: solid 1px #a8a8a8;
     @include transitionalProperty(background-color, 1s);
     text-indent: 5px;
+  }
+
+  .selected {
+    font-style: normal;
+    color: $DEFAULT_FONT_COLOR;
+    background-color: white;
   }
 
   .invalidInput {
