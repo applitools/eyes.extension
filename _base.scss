@@ -1,3 +1,9 @@
+@font-face {
+  font-family: 'Open Sans';
+  //noinspection CssUnknownTarget
+  src: url('../fonts/OpenSans-Regular.ttf');
+}
+
 @mixin userSelect($choice) {
   //noinspection CssUnknownProperty
   -webkit-user-select: $choice;
