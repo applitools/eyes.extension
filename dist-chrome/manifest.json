@@ -2,7 +2,7 @@
     "manifest_version": 2,
 
     "name": "Eyes",
-    "description": "Applitools Eyes browser extension enables you to run visual tests directly from the browser.",
+    "description": "Applitools Eyes browser extension allows you to run visual tests directly from the browser. No coding required.",
     "version": "1.0",
 
     "icons": {
