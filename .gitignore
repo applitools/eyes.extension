@@ -5,6 +5,10 @@ logs
 # JetBrains
 .idea
 
+# Packing result
+*.crx
+*.pem
+
 # Runtime data
 pids
 *.pid
