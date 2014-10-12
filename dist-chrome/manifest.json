@@ -5,15 +5,22 @@
     "description": "This extension enables you to run visual testing directly from the browser.",
     "version": "1.0",
 
+    "icons": {
+        "48": "images/icon_applitools_48.png",
+        "128": "images/icon_applitools_128.png"
+    },
+
     "permissions": [
         "tabs",
-        "windows",
         "cookies",
         "storage",
         "<all_urls>"
     ],
     "browser_action": {
-        "default_icon": "images/applitools_icon.png",
+        "default_icon": {
+            "19": "images/icon_applitools_19.png",
+            "38": "images/icon_applitools_38.png"
+        },
         "default_popup": "popup.html"
     },
     "background": {
