@@ -28,5 +28,19 @@
       "scripts": ["compiled/bf-background.js"]
     },
 
-    "options_page": "options.html"
+    "options_page": "options.html",
+
+    "commands": {
+        "_execute_browser_action": {
+            "suggested_key": {
+                "default": "Ctrl+Shift+A"
+            }
+        },
+        "run-test": {
+            "suggested_key": {
+                "default": "Ctrl+E"
+            },
+            "description": "Run a test with the current settings."
+        }
+    }
 }

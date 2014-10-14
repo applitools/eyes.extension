@@ -12,11 +12,22 @@ window.Applitools = (function () {
 
     var _DEFAULT_BROWSER_ACTION_TOOLTIP = "Applitools Eyes. No tests are currently running.";
     var _MAX_LOGS_COUNT = 100;
+    var _APPLITOOLS_LOGIN_URL = 'https://applitools.com/login/';
 
     //noinspection JSUnresolvedFunction,JSUnresolvedVariable
     chrome.browserAction.setTitle({title: _DEFAULT_BROWSER_ACTION_TOOLTIP});
 
     var Applitools_ = {};
+
+    // Add a listener to the run-test hotkey.
+    //noinspection JSUnresolvedVariable
+    chrome.commands.onCommand.addListener(function (command) {
+        if (command === 'run-test') {
+            return Applitools_.prepareToTest().then(function () {
+                return Applitools_.runTest();
+            });
+        }
+    });
 
     Applitools_.currentState = {
         tabToTest: undefined,
@@ -50,17 +61,6 @@ window.Applitools = (function () {
      */
     Applitools_._buildLogMessage = function (appName, testName, message) {
         return "'" + testName + "'" + " of '" + appName + "': " + message;
-    };
-
-    //noinspection JSValidateJSDoc
-    /**
-     * Sets the tab to be tested.
-     * @param {Tab} tabToTest The tab which viewport we would like to test.
-     * @return {Promise} A promise which resolves when the tab is set.
-     */
-    Applitools_.setTabToTest = function (tabToTest) {
-        Applitools_.currentState.tabToTest = tabToTest;
-        return RSVP.resolve();
     };
 
     /**
@@ -110,6 +110,47 @@ window.Applitools = (function () {
             chrome.browserAction.setTitle({title: _DEFAULT_BROWSER_ACTION_TOOLTIP});
         }
         return RSVP.resolve();
+    };
+
+    /**
+     * @return {Promise} A promise which resolves to the current tab.
+     * @private
+     */
+    var getCurrentTab = function () {
+        var deferred = RSVP.defer();
+        //noinspection JSUnresolvedVariable
+        chrome.tabs.query({currentWindow: true, active: true}, function (tabsList) {
+            // Since there's only one active tab in the current window,
+            deferred.resolve(tabsList[0]);
+        });
+        return deferred.promise;
+    };
+
+    /**
+     * Verifies that an API key is available, and saves the current tab.
+     * @return {Promise} A promise which resolves when preparation is finished.
+     */
+    Applitools_.prepareToTest = function () {
+        return getCurrentTab().then(function (currentTab) {
+            // Making sure that API key is available.
+            return ConfigurationStore.getApiKey().then(function (apiKey) {
+                if (!apiKey) {
+                    var deferred = RSVP.defer();
+                    //noinspection JSUnresolvedVariable
+                    chrome.tabs.create({windowId: currentTab.windowId, url: _APPLITOOLS_LOGIN_URL, active: true},
+                        function () {
+                            Applitools_.updateBrowserActionBadge(true,
+                                "You must be signed in to Applitools in order to use this extension.").
+                                then(function () {
+                                    deferred.resolve();
+                                });
+                        });
+                    return deferred.promise;
+                }
+                Applitools_.currentState.tabToTest = currentTab;
+                return RSVP.resolve();
+            });
+        });
     };
 
     /**

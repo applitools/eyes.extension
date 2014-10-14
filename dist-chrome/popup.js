@@ -14,7 +14,6 @@
     var _NOT_DISPLAYED_CLASS = "notDisplayed";
     var _INVALID_INPUT_CLASS = "invalidInput";
     var _SELECTED_CLASS = "selected";
-    var _APPLITOOLS_LOGIN_URL = 'https://applitools.com/login/';
 
     /**
      * Sets the options for a select html element (options' values are also the options' texts).
@@ -519,46 +518,13 @@
     };
 
     /**
-     *
-     * @return {Promise} A promise which resolves to the current tab.
-     * @private
-     */
-    var _getCurrentTab = function () {
-        var deferred = RSVP.defer();
-        //noinspection JSUnresolvedVariable
-        chrome.tabs.query({currentWindow: true, active: true}, function (tabsList) {
-            // Since there's only one active tab in the current window,
-            deferred.resolve(tabsList[0]);
-        });
-        return deferred.promise;
-    };
-
-    /**
-     * Initializes the elements on the page.
+     * Verifies that running a test is possible, and initializes the elements on the page.
      * @return {Promise} A promise which resolves to an array containing the initializations results.
      * @private
      */
     var _initPage = function () {
-        return _getCurrentTab().then(function (currentTab) {
-            // Making sure that API key is available.
-            return ConfigurationStore.getApiKey().then(function (apiKey) {
-                if (!apiKey) {
-                    var deferred = RSVP.defer();
-                    //noinspection JSUnresolvedVariable
-                    chrome.tabs.create({windowId: currentTab.windowId, url: _APPLITOOLS_LOGIN_URL, active: true},
-                        function () {
-                            Applitools.updateBrowserActionBadge(true,
-                                "You must be signed in to Applitools in order to use this extension.").
-                                then(function () {
-                                    deferred.resolve();
-                                });
-                        });
-                    return deferred.promise;
-                }
-                return Applitools.setTabToTest(currentTab).then(function () {
-                    return RSVP.all([_initMainPanel(), _initBaselinePanel(), Applitools.onPopupOpen()]);
-                });
-            });
+        return Applitools.prepareToTest().then(function () {
+            return RSVP.all([_initMainPanel(), _initBaselinePanel(), Applitools.onPopupOpen()]);
         });
     };
 
