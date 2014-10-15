@@ -14,13 +14,11 @@ window.Applitools = (function () {
     var _MAX_LOGS_COUNT = 100;
     var _APPLITOOLS_LOGIN_URL = 'https://applitools.com/login/';
 
-    //noinspection JSUnresolvedFunction,JSUnresolvedVariable
     chrome.browserAction.setTitle({title: _DEFAULT_BROWSER_ACTION_TOOLTIP});
 
     var Applitools_ = {};
 
     // Add a listener to the run-test hotkey.
-    //noinspection JSUnresolvedVariable
     chrome.commands.onCommand.addListener(function (command) {
         if (command === 'run-test') {
             return Applitools_.prepareToTest().then(function () {
@@ -73,14 +71,11 @@ window.Applitools = (function () {
     Applitools_.updateBrowserActionBadge = function (isError, title) {
         if (isError) {
             // Color is in RGBA format.
-            //noinspection JSUnresolvedFunction,JSUnresolvedVariable
             chrome.browserAction.setBadgeBackgroundColor({color: [255, 0, 0, 255]});
             if (!title) {
                 title = 'An error occurred. Logs are available in the options page.';
             }
-            //noinspection JSUnresolvedFunction,JSUnresolvedVariable
             chrome.browserAction.setTitle({title: title});
-            //noinspection JSUnresolvedFunction,JSUnresolvedVariable
             chrome.browserAction.setBadgeText({text: '!'});
             return RSVP.resolve();
         }
@@ -94,19 +89,14 @@ window.Applitools = (function () {
         // Okay, we can update the badge with the number of running tests (or remove it if no tests are currently
         // running).
         if (Applitools_.currentState.runningTestsCount) {
-            //noinspection JSUnresolvedFunction,JSUnresolvedVariable
             chrome.browserAction.setBadgeBackgroundColor({color: [0, 0, 255, 127]});
-            //noinspection JSUnresolvedVariable,JSUnresolvedFunction
             chrome.browserAction.setBadgeText({text: Applitools_.currentState.runningTestsCount.toString()});
             if (!title) {
                 title = 'Number of running tests: ' + Applitools_.currentState.runningTestsCount;
             }
-            //noinspection JSUnresolvedVariable,JSUnresolvedFunction
             chrome.browserAction.setTitle({title: title});
         } else { // No running tests
-            //noinspection JSUnresolvedFunction,JSUnresolvedVariable
             chrome.browserAction.setBadgeText({text: ''});
-            //noinspection JSUnresolvedFunction,JSUnresolvedVariable
             chrome.browserAction.setTitle({title: _DEFAULT_BROWSER_ACTION_TOOLTIP});
         }
         return RSVP.resolve();
@@ -118,7 +108,6 @@ window.Applitools = (function () {
      */
     var getCurrentTab = function () {
         var deferred = RSVP.defer();
-        //noinspection JSUnresolvedVariable
         chrome.tabs.query({currentWindow: true, active: true}, function (tabsList) {
             // Since there's only one active tab in the current window,
             deferred.resolve(tabsList[0]);
@@ -136,7 +125,6 @@ window.Applitools = (function () {
             return ConfigurationStore.getApiKey().then(function (apiKey) {
                 if (!apiKey) {
                     var deferred = RSVP.defer();
-                    //noinspection JSUnresolvedVariable
                     chrome.tabs.create({windowId: currentTab.windowId, url: _APPLITOOLS_LOGIN_URL, active: true},
                         function () {
                             Applitools_.updateBrowserActionBadge(true,
@@ -339,7 +327,6 @@ window.Applitools = (function () {
         });
     };
 
-    //noinspection JSValidateJSDoc
     /**
      * Restores the tab to it's original window (if there was such a window), otherwise returns the tab to its
      * original size.
@@ -365,7 +352,6 @@ window.Applitools = (function () {
         return WindowHandler.resizeWindow(resizedWindow, {width: originalSize.width, height: originalSize.height})
             .then(function () {
                 var deferred = RSVP.defer();
-                //noinspection JSUnresolvedVariable
                 chrome.tabs.get(tab.id, function (restoredTab) {
                     deferred.resolve(restoredTab);
                 });
@@ -389,9 +375,7 @@ window.Applitools = (function () {
         var originalWindowId = tabToTest.windowId;
         var originalTabIndex = tabToTest.index;
 
-        //noinspection JSUnresolvedVariable
         chrome.windows.get(originalWindowId, {populate: true}, function (originalWindow) {
-            //noinspection JSUnresolvedVariable
             var originalTabsCount = originalWindow.tabs.length;
             var originalWindowWidth = originalWindow.width;
             var originalWindowHeight = originalWindow.height;
@@ -417,16 +401,13 @@ window.Applitools = (function () {
                     // Move the current tab to a new window, so not to resize all the user's tabs
                     updatedWindowPromise.then(function (newWindow) {
                         // Since the new window only includes a single tab.
-                        //noinspection JSUnresolvedVariable
                         var movedTab = newWindow.tabs[0];
                         WindowHandler.setViewportSize(newWindow, movedTab, requiredViewportSize).then(function (resizedWindow) {
-                            //noinspection JSUnresolvedVariable
                             var resizedTab = resizedWindow.tabs[0];
 
                             // We wait a bit before actually taking the screenshot to give the page time to redraw.
                             setTimeout(function () {
                                 // Get a screenshot of the current tab as PNG.
-                                //noinspection JSUnresolvedFunction,JSUnresolvedVariable
                                 chrome.tabs.captureVisibleTab({format: "png"}, function (imageDataUrl) {
                                     var restoredWindowPromise;
                                     var newWindowCreated = originalTabsCount > 1;
@@ -436,7 +417,6 @@ window.Applitools = (function () {
                                     restoredWindowPromise.then(function () {
                                         // Convert the image to a buffer.
                                         var image64 = imageDataUrl.replace('data:image/png;base64,', '');
-                                        //noinspection JSUnresolvedFunction
                                         var image = new Buffer(image64, 'base64');
 
                                         // Run the test
@@ -445,7 +425,6 @@ window.Applitools = (function () {
                                                 ConfigurationStore.getNewTabForResults()
                                                     .then(function (shouldOpen) {
                                                         if (shouldOpen) {
-                                                            //noinspection JSUnresolvedVariable
                                                             chrome.tabs.create({windowId: originalWindowId, url: testResults.url, active: false},
                                                                 function () {
                                                                     deferred.resolve(testResults);
@@ -468,7 +447,6 @@ window.Applitools = (function () {
                             }, 1000);
                         }).catch(function (invalidSizeWindow) { //Handling resize failure.
                             // The window will only contain a single tab (the one we want).
-                            //noinspection JSUnresolvedVariable
                             var resizedTab = invalidSizeWindow.tabs[0];
                             var restoredWindowPromise = Applitools_._restoreTab(resizedTab, isNewWindowCreated,
                                 invalidSizeWindow, originalWindow, originalTabIndex, {width: originalWindowWidth,

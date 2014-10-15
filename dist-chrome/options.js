@@ -8,7 +8,6 @@
     var ConfigurationStore = require('./../ConfigurationStore.js'),
         RSVP = require('rsvp');
 
-    //noinspection JSUnresolvedVariable,JSUnresolvedFunction
     var Applitools = chrome.extension.getBackgroundPage().Applitools;
 
     /**

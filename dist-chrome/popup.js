@@ -8,7 +8,6 @@
     var ConfigurationStore = require('./../ConfigurationStore.js'),
         RSVP = require('rsvp');
 
-    //noinspection JSUnresolvedVariable,JSUnresolvedFunction
     var Applitools = chrome.extension.getBackgroundPage().Applitools;
 
     var _NOT_DISPLAYED_CLASS = "notDisplayed";
@@ -54,16 +53,12 @@
 
         // Open the options tab, or switch to it if it's already opened.
         optionsElement.addEventListener('click', function () {
-            //noinspection JSUnresolvedVariable,JSUnresolvedFunction
             var optionsUrl = chrome.extension.getURL('options.html');
 
-            //noinspection JSUnresolvedVariable
             chrome.tabs.query({url: optionsUrl}, function (tabs) {
                 if (tabs.length) {
-                    //noinspection JSUnresolvedVariable
                     chrome.tabs.update(tabs[0].id, {active: true});
                 } else {
-                    //noinspection JSUnresolvedVariable
                     chrome.tabs.create({url: optionsUrl});
                 }
             });

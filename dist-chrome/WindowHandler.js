@@ -26,7 +26,6 @@
             createData.height = windowSize.height;
         }
 
-        //noinspection JSUnresolvedVariable
         chrome.windows.create(createData, function (updatedWindow) {
             deferred.resolve(updatedWindow);
         });
@@ -41,11 +40,9 @@
      */
     WindowHandler.resizeWindow = function (theWindow, requiredSize) {
         var deferred = RSVP.defer();
-        //noinspection JSUnresolvedVariable
         chrome.windows.update(theWindow.id, requiredSize, function (resizedWindow) {
             // Give the window 200ms to stabilize on the size.
             window.setTimeout(function () {
-                //noinspection JSUnresolvedVariable
                 chrome.windows.get(resizedWindow.id, {populate: true}, function (populatedResizedWindow) {
                     deferred.resolve(populatedResizedWindow);
                 });
@@ -65,10 +62,8 @@
     WindowHandler.moveTabToExistingWindow = function (tab, targetWindow, targetIndex, makeActive) {
         var deferred = RSVP.defer();
         var moveData = {windowId: targetWindow.id, index: targetIndex};
-        //noinspection JSUnresolvedVariable
         chrome.tabs.move(tab.id, moveData, function (movedTab) {
             if (makeActive) {
-                //noinspection JSUnresolvedVariable
                 chrome.tabs.update(movedTab.id, {active: true}, function (activeTab) {
                     deferred.resolve(activeTab);
                 });
@@ -121,7 +116,6 @@
         });
     };
 
-    //noinspection JSUnresolvedVariable
     module.exports = WindowHandler;
 }());
 

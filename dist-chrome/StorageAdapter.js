@@ -21,9 +21,7 @@
 
         var deferred = RSVP.defer();
 
-        //noinspection JSUnresolvedVariable
         chrome.storage.sync.set(obj, function () {
-            //noinspection JSUnresolvedVariable
             var lastError = chrome.runtime.lastError;
             if (lastError) {
                 deferred.reject(new Error("Failed to set '" + key + "': '" + val + "'. Error: " + lastError));
@@ -53,9 +51,7 @@
 
         var deferred = RSVP.defer();
 
-        //noinspection JSUnresolvedVariable,JSUnresolvedFunction
         chrome.storage.sync.get(what, function (items) {
-            //noinspection JSUnresolvedVariable
             var lastError = chrome.runtime.lastError;
             if (lastError) {
                 deferred.reject(new Error("Failed to get '" + key + "'. Error: " + lastError));
@@ -75,9 +71,7 @@
 
         var deferred = RSVP.defer();
 
-        //noinspection JSUnresolvedVariable
         chrome.storage.sync.remove(key, function () {
-            //noinspection JSUnresolvedVariable
             var lastError = chrome.runtime.lastError;
             if (lastError) {
                 deferred.reject(new Error("Failed to remove '" + key + "'. Error: " + lastError));
@@ -96,13 +90,11 @@
      */
     StorageAdapter.getCookie = function (url, name) {
         var deferred = RSVP.defer();
-        //noinspection JSUnresolvedVariable,JSUnresolvedFunction
         chrome.cookies.get({url: url, name: name}, function (cookie) {
             deferred.resolve(cookie);
         });
         return deferred.promise;
     };
 
-    //noinspection JSUnresolvedVariable
     module.exports = StorageAdapter;
 }());
