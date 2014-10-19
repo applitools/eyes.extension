@@ -16,24 +16,39 @@ $BUTTON_HOVER_FONT_COLOR: #0b7ba2;
   }
 
   #options {
-      display: inline-block;
-      position: relative;
-      width: 17px;
-      height: 17px;
-      margin: 18px 15px;
+    display: inline-block;
+    position: relative;
+    width: 17px;
+    height: 17px;
+    margin: 18px 15px;
 
+    //noinspection CssUnknownTarget
+    background-image: url("../images/options_regular.png");
+
+    &:hover {
       //noinspection CssUnknownTarget
-      background-image: url("../images/options_regular.png");
+      background-image: url("../images/options_over.png");
+    }
+
+    &:active {
+      //noinspection CssUnknownTarget
+      background-image: url("../images/options_active.png");
+    }
+
+    &.notificationIcon {
+      //noinspection CssUnknownTarget
+      background-image: url("../images/options_error_regular.png")!important;
 
       &:hover {
         //noinspection CssUnknownTarget
-        background-image: url("../images/options_over.png");
+        background-image: url("../images/options_error_over.png")!important;
       }
 
       &:active {
         //noinspection CssUnknownTarget
-        background-image: url("../images/options_active.png");
+        background-image: url("../images/options_error_active.png")!important;
       }
+    }
   }
 
 
@@ -60,6 +75,21 @@ $BUTTON_HOVER_FONT_COLOR: #0b7ba2;
     &:active {
       //noinspection CssUnknownTarget
       background-image: url("../images/icon_baseline_active.png");
+    }
+
+    &.notificationIcon {
+      //noinspection CssUnknownTarget
+      background-image: url("../images/icon_baseline_error_regular.png")!important;
+
+      &:hover {
+        //noinspection CssUnknownTarget
+        background-image: url("../images/icon_baseline_error_over.png")!important;
+      }
+
+      &:active {
+        //noinspection CssUnknownTarget
+        background-image: url("../images/icon_baseline_error_active.png")!important;
+      }
     }
   }
 

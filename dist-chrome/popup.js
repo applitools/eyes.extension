@@ -10,9 +10,10 @@
 
     var Applitools = chrome.extension.getBackgroundPage().Applitools;
 
-    var _NOT_DISPLAYED_CLASS = "notDisplayed";
-    var _INVALID_INPUT_CLASS = "invalidInput";
-    var _SELECTED_CLASS = "selected";
+    var _NOT_DISPLAYED_CLASS = "notDisplayed",
+        _INVALID_INPUT_CLASS = "invalidInput",
+        _SELECTED_CLASS = "selected",
+        _NOTIFICATION_ICON_CLASS = "notificationIcon";
 
     /**
      * Sets the options for a select html element (options' values are also the options' texts).
@@ -112,6 +113,16 @@
     var _initShowBaselinePanelButton = function () {
         var baselineButton = document.getElementById('showBaseline');
         baselineButton.addEventListener('click', _onShowBaselineButtonClicked);
+
+        return ConfigurationStore.getBaselineSelection().then(function (selection) {
+            return _updateShowBaselinePanelButton(baselineButton, selection);
+        });
+    };
+
+    var _updateShowBaselinePanelButton = function (baselineButton, selectionId) {
+        // Checking if there's a non-default baseline selection - i.e. not undefined
+        selectionId ? baselineButton.classList.add(_NOTIFICATION_ICON_CLASS):
+            baselineButton.classList.remove(_NOTIFICATION_ICON_CLASS);
         return RSVP.resolve(baselineButton);
     };
 
@@ -309,6 +320,9 @@
                 return ConfigurationStore.setBaselineAppName(appName);
             }).then(function () {
                 return ConfigurationStore.setBaselineTestName(testName);
+            }).then(function () {
+                var baselineButton = document.getElementById('showBaseline');
+                return _updateShowBaselinePanelButton(baselineButton, selectionId);
             }).then(function () {
                 return _showPanel('mainPanel');
             });
