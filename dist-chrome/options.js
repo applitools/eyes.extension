@@ -120,7 +120,8 @@
      */
     var _initPage = function () {
         // We're done when ALL options are loaded.
-        return RSVP.all([_initNewTabForResults(), _initEyesServerUrl(), _initRestoreDefaultUrlButton(), _restoreLogs()]);
+        return RSVP.all([Applitools.optionsOpened(), _initNewTabForResults(), _initEyesServerUrl(),
+            _initRestoreDefaultUrlButton(), _restoreLogs()]);
     };
 
     document.addEventListener('DOMContentLoaded', _initPage);

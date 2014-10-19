@@ -52,6 +52,9 @@
     var _initOptionsButton = function () {
         var optionsElement = document.getElementById('options');
 
+        Applitools.currentState.unreadErrorsExist ? optionsElement.classList.add(_NOTIFICATION_ICON_CLASS):
+            optionsElement.classList.remove(_NOTIFICATION_ICON_CLASS);
+
         // Open the options tab, or switch to it if it's already opened.
         optionsElement.addEventListener('click', function () {
             var optionsUrl = chrome.extension.getURL('options.html');
@@ -533,7 +536,7 @@
      */
     var _initPage = function () {
         return Applitools.prepareToTest().then(function () {
-            return RSVP.all([_initMainPanel(), _initBaselinePanel(), Applitools.onPopupOpen()]);
+            return RSVP.all([_initMainPanel(), _initBaselinePanel(), Applitools.popupOpened()]);
         });
     };
 

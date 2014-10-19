@@ -31,7 +31,8 @@ window.Applitools = (function () {
         tabToTest: undefined,
         runningTestsCount: 0,
         logs: [],
-        showErrorBadge: false
+        newErrorsExist: false,  // errors were encountered since the last time the extension menu was opened
+        unreadErrorsExist: false // errors were encountered and not read
     };
 
     /**
@@ -82,7 +83,7 @@ window.Applitools = (function () {
 
         // If we're here then we want to update the badge with the number of running tests. However, we only update
         // this if we should not continue show the error.
-        if (Applitools_.currentState.showErrorBadge) {
+        if (Applitools_.currentState.newErrorsExist) {
             return RSVP.resolve();
         }
 
@@ -163,10 +164,20 @@ window.Applitools = (function () {
      * Notifies the background script that the popup page had been opened.
      * @return {Promise} A promise which resolves when finished the required handling.
      */
-    Applitools_.onPopupOpen = function () {
+    Applitools_.popupOpened = function () {
         // If there was an error badge, we can stop displaying it.
-        Applitools_.currentState.showErrorBadge = false;
+        Applitools_.currentState.newErrorsExist = false;
         return Applitools_.updateBrowserActionBadge(false, undefined);
+    };
+
+    /**
+     * Notifies the background script that the options page had been opened.
+     * @return {Promise} A promise which resolves when finished the required handling.
+     */
+    Applitools_.optionsOpened = function () {
+        // Any unread errors are now read.
+        Applitools_.currentState.unreadErrorsExist = false;
+        return RSVP.resolve();
     };
 
     /**
@@ -183,7 +194,7 @@ window.Applitools = (function () {
         }
         errorMessage = Applitools_._buildLogMessage(appName, testName, 'Error: ' + errorMessage);
         return Applitools_._log(errorMessage).then(function () {
-            Applitools_.currentState.showErrorBadge = true;
+            Applitools_.currentState.newErrorsExist = Applitools_.currentState.unreadErrorsExist = true;
             return Applitools_.updateBrowserActionBadge(true, undefined).then(function () {
                 return Applitools_._testEnded(appName, testName);
             });
