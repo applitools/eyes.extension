@@ -1,0 +1,23 @@
+{
+  "name": "eyes.extension",
+  "version": "0.0.0",
+  "description": "eyes.extension\r ==============",
+  "main": "ConfigurationStore.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/applitools/eyes.extension.git"
+  },
+  "author": "Applitools Team <team@applitools.com> (http://www.applitools.com/)",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/applitools/eyes.extension/issues"
+  },
+  "homepage": "https://github.com/applitools/eyes.extension",
+  "devDependencies": {
+      "eyes.images": "*",
+      "rsvp": "*"
+  }
+}
