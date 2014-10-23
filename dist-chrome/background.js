@@ -90,7 +90,7 @@ window.Applitools = (function () {
         // Okay, we can update the badge with the number of running tests (or remove it if no tests are currently
         // running).
         if (Applitools_.currentState.runningTestsCount) {
-            chrome.browserAction.setBadgeBackgroundColor({color: [0, 0, 255, 127]});
+            chrome.browserAction.setBadgeBackgroundColor({color: [59, 131, 241, 255]});
             chrome.browserAction.setBadgeText({text: Applitools_.currentState.runningTestsCount.toString()});
             if (!title) {
                 title = 'Number of running tests: ' + Applitools_.currentState.runningTestsCount;
