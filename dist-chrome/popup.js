@@ -471,12 +471,20 @@
      */
     var _makeOkayable = function (element) {
         // If the user pressed enter on one of the inputs
-        element.addEventListener('keypress', function (event) {
-            if (event.keyCode === 13) {
-                _onBaselineOkayButtonClicked();
-            }
-        });
+        element.addEventListener('keypress', _handleOkayableKeypress);
         return RSVP.resolve(element);
+    };
+
+    //noinspection SpellCheckingInspection
+    /**
+     * Checks if the Return key was pressed. If so, it's as if the okay button was clicked.
+     * @param event The DOM element to set the listener on.
+     * @private
+     */
+    var _handleOkayableKeypress = function (event) {
+        if (event.keyCode === 13) {
+            _onBaselineOkayButtonClicked();
+        }
     };
 
     /**
