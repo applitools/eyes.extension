@@ -13,6 +13,7 @@
     var _NOT_DISPLAYED_CLASS = "notDisplayed",
         _INVALID_INPUT_CLASS = "invalidInput",
         _SELECTED_CLASS = "selected",
+        _DISABLED_CLASS = "disabled",
         _NOTIFICATION_ICON_CLASS = "notificationIcon";
 
     var _OPTIONS_ELEMENT_ID = "options",
@@ -68,8 +69,7 @@
     var _initOptionsButton = function () {
         var optionsElement = document.getElementById(_OPTIONS_ELEMENT_ID);
 
-        Applitools.currentState.unreadErrorsExist ? optionsElement.classList.add(_NOTIFICATION_ICON_CLASS):
-            optionsElement.classList.remove(_NOTIFICATION_ICON_CLASS);
+        _addRemoveClass(optionsElement, Applitools.currentState.unreadErrorsExist, _NOTIFICATION_ICON_CLASS);
 
         // Open the options tab, or switch to it if it's already opened.
         optionsElement.addEventListener('click', function () {
@@ -208,16 +208,30 @@
     var _initViewportSize = function () {
         var viewportSizeElement = document.getElementById(_VIEWPORT_SIZE_ELEMENT_ID);
 
-        // Get all viewport sizes available.
-        return ConfigurationStore.getAllViewportSizes().then(function (allViewportSizes) {
+        return RSVP.all([
+            // We need the baseline selection to disable the viewport in case a step URL was selected
+            ConfigurationStore.getBaselineSelection(),
+            // Get all viewport sizes available.
+            ConfigurationStore.getAllViewportSizes(),
             // Get the currently set viewport size.
-            return ConfigurationStore.getViewportSize().then(function (viewportSize) {
-                // Update the element.
-                return _setSelect(viewportSizeElement, allViewportSizes, viewportSize);
-            }).then(function (initializedElement) {
-                initializedElement.addEventListener('change', _onViewportSizeChanged);
-                return RSVP.resolve(initializedElement);
-            });
+            ConfigurationStore.getViewportSize()]).then(function (results) {
+
+            var baselineSelection = results[0],
+                allViewportSizes = results[1],
+                viewportSize = results[2];
+
+            var disabled = (baselineSelection === _STEP_URL_SELECTION_ELEMENT_ID);
+
+            _addRemoveClass(viewportSizeElement, disabled, _DISABLED_CLASS);
+            viewportSizeElement.disabled = disabled;
+            viewportSizeElement.title = disabled ? "Viewport size will be taken from the referred baseline step" :
+                "Set the viewport size in which the test will run";
+
+            // Update the element.
+            return _setSelect(viewportSizeElement, allViewportSizes, viewportSize);
+        }).then(function (initializedElement) {
+            initializedElement.addEventListener('change', _onViewportSizeChanged);
+            return RSVP.resolve(initializedElement);
         });
     };
 
@@ -356,6 +370,8 @@
             }).then(function () {
                 var baselineButton = document.getElementById(_SHOW_BASELINE_ELEMENT_ID);
                 return _updateShowBaselinePanelButton(baselineButton, selectionId);
+            }).then(function () {
+                return _initViewportSize();
             }).then(function () {
                 return _showPanel(_MAIN_PANEL_ELEMENT_ID);
             });
@@ -568,6 +584,21 @@
         return Applitools.prepareToTest().then(function () {
             return RSVP.all([_initMainPanel(), _initBaselinePanel(), Applitools.popupOpened()]);
         });
+    };
+
+    /**
+     * Adds or remove a class from an element.
+     * @param element - a DOM element.
+     * @param shouldAdd - when true the class will be added to the element. Otherwise - removed.
+     * @param className - the class to add or remove
+     * @private
+     */
+    var _addRemoveClass = function (element, shouldAdd, className) {
+        if (shouldAdd) {
+            element.classList.add(className);
+        } else {
+            element.classList.remove(className);
+        }
     };
 
     document.addEventListener('DOMContentLoaded', _initPage);

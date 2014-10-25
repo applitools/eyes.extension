@@ -172,6 +172,11 @@ $BUTTON_HOVER_FONT_COLOR: #0b7ba2;
         //noinspection CssUnknownTarget
         background-image: url("../images/icon_viewport_size_over.png");
       }
+
+      &.disabled {
+        text-decoration: line-through;
+        color: lightgray;
+      }
     }
 
   }
