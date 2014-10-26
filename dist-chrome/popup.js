@@ -536,9 +536,9 @@
                         var checkedElement = selectionId ? document.getElementById(selectionId) :
                             _getDefaultValuesSelectionElement();
                         var selectionPromise;
-                        if (selectionId === 'userValuesSelection') {
+                        if (selectionId === _USER_VALUES_SELECTION_ELEMENT_ID) {
                             selectionPromise = _onBaselineAppNameSelected();
-                        } else if (selectionId === 'stepUrlSelection') {
+                        } else if (selectionId === _STEP_URL_SELECTION_ELEMENT_ID) {
                             selectionPromise = _onBaselineStepUrlSelected();
                         } else {
                             selectionPromise = _onBaselineDefaultSelectionSelected();

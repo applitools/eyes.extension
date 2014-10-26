@@ -16,6 +16,9 @@ window.Applitools = (function () {
 
     chrome.browserAction.setTitle({title: _DEFAULT_BROWSER_ACTION_TOOLTIP});
 
+    // Keeps a mapping of baseline ID to tab ID in order to reuse result tabs
+    var _resultTabs = {};
+
     var Applitools_ = {};
 
     // Add a listener to the run-test hotkey.
@@ -436,12 +439,41 @@ window.Applitools = (function () {
                                                 ConfigurationStore.getNewTabForResults()
                                                     .then(function (shouldOpen) {
                                                         if (shouldOpen) {
-                                                            chrome.tabs.create({windowId: originalWindowId, url: testResults.url, active: false},
-                                                                function () {
-                                                                    deferred.resolve(testResults);
-                                                                    Applitools_._testEnded(testParams.appName,
-                                                                        testParams.testName);
-                                                                });
+                                                            var baselineId = JSON.stringify(testParams),
+                                                                tabId = _resultTabs[baselineId];
+
+                                                            if (tabId) {
+                                                                // This baseline already had a result tab. If it's open
+                                                                // we will reuse it
+                                                                chrome.tabs.update(tabId, {windowId: originalWindowId, url: testResults.url},
+                                                                    function (tab) {
+                                                                        if (tab) {
+                                                                            deferred.resolve(testResults);
+                                                                            Applitools_._testEnded(testParams.appName,
+                                                                                testParams.testName);
+                                                                        } else {
+                                                                            chrome.tabs.create({windowId: originalWindowId, url: testResults.url, active: false},
+                                                                                function (tab) {
+                                                                                    if (tab) {
+                                                                                        _resultTabs[baselineId] = tab.id;
+                                                                                    }
+                                                                                    deferred.resolve(testResults);
+                                                                                    Applitools_._testEnded(testParams.appName,
+                                                                                        testParams.testName);
+                                                                                });
+                                                                        }
+                                                                    });
+                                                            } else {
+                                                                chrome.tabs.create({windowId: originalWindowId, url: testResults.url, active: false},
+                                                                    function (tab) {
+                                                                        if (tab) {
+                                                                            _resultTabs[baselineId] = tab.id;
+                                                                        }
+                                                                        deferred.resolve(testResults);
+                                                                        Applitools_._testEnded(testParams.appName,
+                                                                            testParams.testName);
+                                                                    });
+                                                            }
                                                         } else {
                                                             deferred.resolve(testResults);
                                                             Applitools_._testEnded(testParams.appName,
