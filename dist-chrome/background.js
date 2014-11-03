@@ -16,6 +16,9 @@ window.Applitools = (function () {
 
     chrome.browserAction.setTitle({title: _DEFAULT_BROWSER_ACTION_TOOLTIP});
 
+    // Keeps a mapping of baseline ID to tab ID in order to reuse result tabs
+    var _resultTabs = {};
+
     var Applitools_ = {};
 
     // Add a listener to the run-test hotkey.
@@ -90,7 +93,7 @@ window.Applitools = (function () {
         // Okay, we can update the badge with the number of running tests (or remove it if no tests are currently
         // running).
         if (Applitools_.currentState.runningTestsCount) {
-            chrome.browserAction.setBadgeBackgroundColor({color: [0, 0, 255, 127]});
+            chrome.browserAction.setBadgeBackgroundColor({color: [59, 131, 241, 255]});
             chrome.browserAction.setBadgeText({text: Applitools_.currentState.runningTestsCount.toString()});
             if (!title) {
                 title = 'Number of running tests: ' + Applitools_.currentState.runningTestsCount;
@@ -436,16 +439,41 @@ window.Applitools = (function () {
                                                     ConfigurationStore.getNewTabForResults()
                                                         .then(function (shouldOpen) {
                                                             if (shouldOpen) {
-                                                                chrome.tabs.create({
-                                                                        windowId: originalWindowId,
-                                                                        url: testResults.url,
-                                                                        active: false
-                                                                    },
-                                                                    function () {
-                                                                        deferred.resolve(testResults);
-                                                                        Applitools_._testEnded(testParams.appName,
-                                                                            testParams.testName);
-                                                                    });
+                                                                var baselineId = JSON.stringify(testParams),
+                                                                    tabId = _resultTabs[baselineId];
+
+                                                                if (tabId) {
+                                                                    // This baseline already had a result tab. If it's open
+                                                                    // we will reuse it
+                                                                    chrome.tabs.update(tabId, {url: testResults.url},
+                                                                        function (tab) {
+                                                                            if (tab) {
+                                                                                deferred.resolve(testResults);
+                                                                                Applitools_._testEnded(testParams.appName,
+                                                                                    testParams.testName);
+                                                                            } else {
+                                                                                chrome.tabs.create({windowId: originalWindowId, url: testResults.url, active: false},
+                                                                                    function (tab) {
+                                                                                        if (tab) {
+                                                                                            _resultTabs[baselineId] = tab.id;
+                                                                                        }
+                                                                                        deferred.resolve(testResults);
+                                                                                        Applitools_._testEnded(testParams.appName,
+                                                                                            testParams.testName);
+                                                                                    });
+                                                                            }
+                                                                        });
+                                                                } else {
+                                                                    chrome.tabs.create({windowId: originalWindowId, url: testResults.url, active: false},
+                                                                        function (tab) {
+                                                                            if (tab) {
+                                                                                _resultTabs[baselineId] = tab.id;
+                                                                            }
+                                                                            deferred.resolve(testResults);
+                                                                            Applitools_._testEnded(testParams.appName,
+                                                                                testParams.testName);
+                                                                        });
+                                                                }
                                                             } else {
                                                                 deferred.resolve(testResults);
                                                                 Applitools_._testEnded(testParams.appName,
@@ -468,6 +496,7 @@ window.Applitools = (function () {
                                         width: originalWindowWidth,
                                         height: originalWindowHeight
                                     });
+
                                 restoredWindowPromise.then(function () {
                                     deferred.reject();
                                     Applitools_._onError('Failed to set viewport size ' + requiredViewportSize.width + 'x' +

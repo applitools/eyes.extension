@@ -13,7 +13,24 @@
     var _NOT_DISPLAYED_CLASS = "notDisplayed",
         _INVALID_INPUT_CLASS = "invalidInput",
         _SELECTED_CLASS = "selected",
+        _DISABLED_CLASS = "disabled",
         _NOTIFICATION_ICON_CLASS = "notificationIcon";
+
+    var _OPTIONS_ELEMENT_ID = "options",
+        _MAIN_PANEL_ELEMENT_ID = "mainPanel",
+        _BASELINE_PANEL_ELEMENT_ID = "baselinePanel",
+        _SHOW_BASELINE_ELEMENT_ID = "showBaseline",
+        _MATCH_LEVEL_ELEMENT_ID = "matchLevel",
+        _VIEWPORT_SIZE_ELEMENT_ID = "viewportSize",
+        _RUN_ELEMENT_ID = "run",
+        _STEP_URL_ELEMENT_ID = "stepUrl",
+        _STEP_URL_SELECTION_ELEMENT_ID = "stepUrlSelection",
+        _APP_NAME_ELEMENT_ID = "appName",
+        _TEST_NAME_ELEMENT_ID = "testName",
+        _USER_VALUES_SELECTION_ELEMENT_ID = "userValuesSelection",
+        _DEFAULT_VALUES_SELECTION_ELEMENT_ID = "defaultValuesSelection",
+        _BASELINE_CANCEL_ELEMENT_ID = "baselineCancel",
+        _BASELINE_OK_ELEMENT_ID = "baselineOk";
 
     /**
      * Sets the options for a select html element (options' values are also the options' texts).
@@ -50,10 +67,9 @@
      * @private
      */
     var _initOptionsButton = function () {
-        var optionsElement = document.getElementById('options');
+        var optionsElement = document.getElementById(_OPTIONS_ELEMENT_ID);
 
-        Applitools.currentState.unreadErrorsExist ? optionsElement.classList.add(_NOTIFICATION_ICON_CLASS):
-            optionsElement.classList.remove(_NOTIFICATION_ICON_CLASS);
+        _addRemoveClass(optionsElement, Applitools.currentState.unreadErrorsExist, _NOTIFICATION_ICON_CLASS);
 
         // Open the options tab, or switch to it if it's already opened.
         optionsElement.addEventListener('click', function () {
@@ -79,10 +95,10 @@
      * @private
      */
     var _showPanel = function (panelId) {
-        var mainPanel = document.getElementById('mainPanel');
-        var baselinePanel = document.getElementById('baselinePanel');
+        var mainPanel = document.getElementById(_MAIN_PANEL_ELEMENT_ID);
+        var baselinePanel = document.getElementById(_BASELINE_PANEL_ELEMENT_ID);
         var panelToShow;
-        if (panelId === 'baselinePanel') {
+        if (panelId === _BASELINE_PANEL_ELEMENT_ID) {
             panelToShow = baselinePanel;
             // Basically just display the baseline panel.
             baselinePanel.className = '';
@@ -104,7 +120,7 @@
      */
     var _onShowBaselineButtonClicked = function () {
         return _initBaselinePanel().then(function () {
-            return _showPanel('baselinePanel');
+            return _showPanel(_BASELINE_PANEL_ELEMENT_ID);
         });
     };
 
@@ -114,7 +130,7 @@
      * @private
      */
     var _initShowBaselinePanelButton = function () {
-        var baselineButton = document.getElementById('showBaseline');
+        var baselineButton = document.getElementById(_SHOW_BASELINE_ELEMENT_ID);
         baselineButton.addEventListener('click', _onShowBaselineButtonClicked);
 
         return ConfigurationStore.getBaselineSelection().then(function (selection) {
@@ -124,9 +140,23 @@
 
     var _updateShowBaselinePanelButton = function (baselineButton, selectionId) {
         // Checking if there's a non-default baseline selection - i.e. not undefined
-        selectionId ? baselineButton.classList.add(_NOTIFICATION_ICON_CLASS):
+        if (!selectionId || selectionId === _DEFAULT_VALUES_SELECTION_ELEMENT_ID) {
             baselineButton.classList.remove(_NOTIFICATION_ICON_CLASS);
-        return RSVP.resolve(baselineButton);
+            baselineButton.title = "Set a custom baseline";
+            return RSVP.resolve(baselineButton);
+        }
+
+        baselineButton.classList.add(_NOTIFICATION_ICON_CLASS);
+        return RSVP.all([ConfigurationStore.getBaselineStepUrl(),
+            ConfigurationStore.getBaselineAppName(),
+            ConfigurationStore.getBaselineTestName()])
+            .then(function (baselineParams) {
+                baselineButton.title = "(Custom baseline) " + ((selectionId === _STEP_URL_SELECTION_ELEMENT_ID) ?
+                    ("Step URL: " + baselineParams[0]) :
+                    ("Application name: \"" + baselineParams[1] + "\", test name: \"" + baselineParams[2]) + "\".");
+
+                return RSVP.resolve(baselineButton);
+            });
     };
 
     /**
@@ -135,7 +165,7 @@
      * @private
      */
     var _onMatchLevelChanged = function () {
-        var matchLevel = document.getElementById('matchLevel').value;
+        var matchLevel = document.getElementById(_MATCH_LEVEL_ELEMENT_ID).value;
         return ConfigurationStore.setMatchLevel(matchLevel);
     };
 
@@ -145,7 +175,7 @@
      * @private
      */
     var _initMatchLevel = function () {
-        var matchLevelElement = document.getElementById('matchLevel');
+        var matchLevelElement = document.getElementById(_MATCH_LEVEL_ELEMENT_ID);
 
         // Get all available match levels.
         return ConfigurationStore.getAllMatchLevels().then(function (allMatchLevels) {
@@ -166,7 +196,7 @@
      * @private
      */
     var _onViewportSizeChanged = function () {
-        var viewportSize = document.getElementById('viewportSize').value;
+        var viewportSize = document.getElementById(_VIEWPORT_SIZE_ELEMENT_ID).value;
         return ConfigurationStore.setViewportSize(viewportSize);
     };
 
@@ -176,18 +206,32 @@
      * @private
      */
     var _initViewportSize = function () {
-        var viewportSizeElement = document.getElementById('viewportSize');
+        var viewportSizeElement = document.getElementById(_VIEWPORT_SIZE_ELEMENT_ID);
 
-        // Get all viewport sizes available.
-        return ConfigurationStore.getAllViewportSizes().then(function (allViewportSizes) {
+        return RSVP.all([
+            // We need the baseline selection to disable the viewport in case a step URL was selected
+            ConfigurationStore.getBaselineSelection(),
+            // Get all viewport sizes available.
+            ConfigurationStore.getAllViewportSizes(),
             // Get the currently set viewport size.
-            return ConfigurationStore.getViewportSize().then(function (viewportSize) {
-                // Update the element.
-                return _setSelect(viewportSizeElement, allViewportSizes, viewportSize);
-            }).then(function (initializedElement) {
-                initializedElement.addEventListener('change', _onViewportSizeChanged);
-                return RSVP.resolve(initializedElement);
-            });
+            ConfigurationStore.getViewportSize()]).then(function (results) {
+
+            var baselineSelection = results[0],
+                allViewportSizes = results[1],
+                viewportSize = results[2];
+
+            var disabled = (baselineSelection === _STEP_URL_SELECTION_ELEMENT_ID);
+
+            _addRemoveClass(viewportSizeElement, disabled, _DISABLED_CLASS);
+            viewportSizeElement.disabled = disabled;
+            viewportSizeElement.title = disabled ? "Viewport size will be taken from the referred baseline step" :
+                "Set the viewport size in which the test will run";
+
+            // Update the element.
+            return _setSelect(viewportSizeElement, allViewportSizes, viewportSize);
+        }).then(function (initializedElement) {
+            initializedElement.addEventListener('change', _onViewportSizeChanged);
+            return RSVP.resolve(initializedElement);
         });
     };
 
@@ -197,7 +241,7 @@
      * @private
      */
     var _initRunButton = function () {
-        var runElement = document.getElementById("run");
+        var runElement = document.getElementById(_RUN_ELEMENT_ID);
         // Run a visual test when button is clicked.
         runElement.addEventListener("click", function () {
             // IMPORTANT All test logic must run in the background page! This is because when the popup is closed,
@@ -223,27 +267,27 @@
 
     // Shortcuts for getting DOM elements which are called often.
     var _getStepUrlInputElement = function () {
-        return document.getElementById('stepUrl');
+        return document.getElementById(_STEP_URL_ELEMENT_ID);
     };
 
     var _getStepUrlSelectionElement = function () {
-        return document.getElementById('stepUrlSelection');
+        return document.getElementById(_STEP_URL_SELECTION_ELEMENT_ID);
     };
 
     var _getAppNameInputElement = function () {
-        return document.getElementById('appName');
+        return document.getElementById(_APP_NAME_ELEMENT_ID);
     };
 
     var _getTestNameInputElement = function () {
-        return document.getElementById('testName');
+        return document.getElementById(_TEST_NAME_ELEMENT_ID);
     };
 
     var _getUserValuesSelectionElement = function () {
-        return document.getElementById('userValuesSelection');
+        return document.getElementById(_USER_VALUES_SELECTION_ELEMENT_ID);
     };
 
     var _getDefaultValuesSelectionElement = function () {
-        return document.getElementById('defaultValuesSelection');
+        return document.getElementById(_DEFAULT_VALUES_SELECTION_ELEMENT_ID);
     };
 
     var _getDefaultValuesSelectionContainer = function () {
@@ -324,10 +368,12 @@
             }).then(function () {
                 return ConfigurationStore.setBaselineTestName(testName);
             }).then(function () {
-                var baselineButton = document.getElementById('showBaseline');
+                var baselineButton = document.getElementById(_SHOW_BASELINE_ELEMENT_ID);
                 return _updateShowBaselinePanelButton(baselineButton, selectionId);
             }).then(function () {
-                return _showPanel('mainPanel');
+                return _initViewportSize();
+            }).then(function () {
+                return _showPanel(_MAIN_PANEL_ELEMENT_ID);
             });
     };
 
@@ -339,7 +385,7 @@
     var _onBaselineCancelButtonClicked = function () {
         // Reset the user selection to the last values
         return _initUserSelection().then(function () {
-            return _showPanel('mainPanel');
+            return _showPanel(_MAIN_PANEL_ELEMENT_ID);
         });
     };
 
@@ -425,12 +471,20 @@
      */
     var _makeOkayable = function (element) {
         // If the user pressed enter on one of the inputs
-        element.addEventListener('keypress', function (event) {
-            if (event.keyCode === 13) {
-                _onBaselineOkayButtonClicked();
-            }
-        });
+        element.addEventListener('keypress', _handleOkayableKeypress);
         return RSVP.resolve(element);
+    };
+
+    //noinspection SpellCheckingInspection
+    /**
+     * Checks if the Return key was pressed. If so, it's as if the okay button was clicked.
+     * @param event The DOM element to set the listener on.
+     * @private
+     */
+    var _handleOkayableKeypress = function (event) {
+        if (event.keyCode === 13) {
+            _onBaselineOkayButtonClicked();
+        }
     };
 
     /**
@@ -482,9 +536,9 @@
                         var checkedElement = selectionId ? document.getElementById(selectionId) :
                             _getDefaultValuesSelectionElement();
                         var selectionPromise;
-                        if (selectionId === 'userValuesSelection') {
+                        if (selectionId === _USER_VALUES_SELECTION_ELEMENT_ID) {
                             selectionPromise = _onBaselineAppNameSelected();
-                        } else if (selectionId === 'stepUrlSelection') {
+                        } else if (selectionId === _STEP_URL_SELECTION_ELEMENT_ID) {
                             selectionPromise = _onBaselineStepUrlSelected();
                         } else {
                             selectionPromise = _onBaselineDefaultSelectionSelected();
@@ -504,7 +558,7 @@
      * @private
      */
     var _initBaselineCancelButton = function () {
-        var cancelButton = document.getElementById('baselineCancel');
+        var cancelButton = document.getElementById(_BASELINE_CANCEL_ELEMENT_ID);
         cancelButton.addEventListener('click', _onBaselineCancelButtonClicked);
         return RSVP.resolve(cancelButton);
     };
@@ -515,7 +569,7 @@
      * @private
      */
     var _initBaselineOkButton = function () {
-        var okButton = document.getElementById('baselineOk');
+        var okButton = document.getElementById(_BASELINE_OK_ELEMENT_ID);
         okButton.addEventListener('click', _onBaselineOkayButtonClicked);
         return RSVP.resolve(okButton);
     };
@@ -538,6 +592,21 @@
         return Applitools.prepareToTest().then(function () {
             return RSVP.all([_initMainPanel(), _initBaselinePanel(), Applitools.popupOpened()]);
         });
+    };
+
+    /**
+     * Adds or remove a class from an element.
+     * @param element - a DOM element.
+     * @param shouldAdd - when true the class will be added to the element. Otherwise - removed.
+     * @param className - the class to add or remove
+     * @private
+     */
+    var _addRemoveClass = function (element, shouldAdd, className) {
+        if (shouldAdd) {
+            element.classList.add(className);
+        } else {
+            element.classList.remove(className);
+        }
     };
 
     document.addEventListener('DOMContentLoaded', _initPage);
