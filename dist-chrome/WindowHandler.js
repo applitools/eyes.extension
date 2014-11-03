@@ -5,7 +5,14 @@
     "use strict";
 
     //noinspection JSUnresolvedFunction
-    var RSVP = require('rsvp');
+    var RSVP = require('rsvp'),
+        ChromeUtils = require('./ChromeUtils');
+
+    var EyesUtils = require('eyes.utils'),
+        GeometryUtils = EyesUtils.GeometryUtils;
+
+    var _MAX_SCROLL_BAR_SIZE = 50;
+    var _MIN_SCREENSHOT_PART_SIZE = 10;
 
     var WindowHandler = {};
 
@@ -64,6 +71,7 @@
         var moveData = {windowId: targetWindow.id, index: targetIndex};
         chrome.tabs.move(tab.id, moveData, function (movedTab) {
             if (makeActive) {
+                //noinspection JSUnresolvedVariable
                 chrome.tabs.update(movedTab.id, {active: true}, function (activeTab) {
                     deferred.resolve(activeTab);
                 });
@@ -115,6 +123,284 @@
             return RSVP.reject(resizedWindow);
         });
     };
+
+    /**
+     * Get the current scroll position of the given tab.
+     * @param {Tab} tab The tab for which we want to get the scroll position.
+     * @return {Promise} A promise which resolves to the scroll position (x/y).
+     */
+    WindowHandler.getCurrentScrollPosition = function (tab) {
+        //noinspection JSUnresolvedVariable
+        var tabId = tab.id;
+        //noinspection JSLint
+        var leftPromise = ChromeUtils.executeScript(tabId, 'var doc = document.documentElement; var resultX = (window.pageXOffset || doc.scrollLeft) - (doc.clientLeft || 0); resultX');
+        //noinspection JSLint
+        var topPromise = ChromeUtils.executeScript(tabId, 'var doc = document.documentElement; var resultY = (window.pageYOffset || doc.scrollTop)  - (doc.clientTop || 0); resultY');
+
+        return RSVP.hash({x: leftPromise, y: topPromise}).then(function (results) {
+            var x = parseInt(results.x[0], 10);
+            var y = parseInt(results.y[0], 10);
+
+            return RSVP.resolve({x: x, y: y});
+        });
+    };
+
+    /**
+     * Scrolls to a given location.
+     * @param {Tab} tab The tab in which we would like to scroll.
+     * @param {int} x The x value of the position to scroll to.
+     * @param {int} y The y value of the position to scroll to.
+     * @return {Promise} A promise which resolves when the scroll is executed.
+     */
+    WindowHandler.scrollTo = function (tab, x, y) {
+        //noinspection JSUnresolvedVariable
+        return ChromeUtils.executeScript(tab.id, 'window.scrollTo(' + x + ',' + y + ')');
+    };
+
+    /**
+     * Get the entire page size of the given tab.
+     * @param {Tab} tab The tab for which we would like to calculate the entire page size.
+     * @return {Promise} A promise which resolves to an object containing the width/height of the page.
+     */
+    WindowHandler.getEntirePageSize = function (tab) {
+        //noinspection JSUnresolvedVariable
+        var tabId = tab.id;
+        var scrollWidthPromise = ChromeUtils.executeScript(tabId, "document.documentElement.scrollWidth");
+        var bodyScrollWidthPromise = ChromeUtils.executeScript(tabId, "document.body.scrollWidth");
+
+        // IMPORTANT: Notice there's a major difference between scrollWidth
+        // and scrollHeight. While scrollWidth is the maximum between an
+        // element's width and its content width, scrollHeight might be
+        // smaller (!) than the clientHeight, which is why we take the
+        // maximum between them.
+        var clientHeightPromise = ChromeUtils.executeScript(tabId, "document.documentElement.clientHeight");
+        var bodyClientHeightPromise = ChromeUtils.executeScript(tabId, "document.body.clientHeight");
+        var scrollHeightPromise = ChromeUtils.executeScript(tabId, "document.documentElement.scrollHeight");
+        var bodyScrollHeightPromise = ChromeUtils.executeScript(tabId, "document.body.scrollHeight");
+
+        return RSVP.all([scrollWidthPromise, bodyScrollWidthPromise, clientHeightPromise, bodyClientHeightPromise,
+            scrollHeightPromise, bodyScrollHeightPromise]).then(function (results) {
+            // Notice that each result is itself actually an array (since executeScript returns an Array).
+            var scrollWidth = parseInt(results[0][0], 10);
+            var bodyScrollWidth = parseInt(results[1][0], 10);
+            var totalWidth = Math.max(scrollWidth, bodyScrollWidth);
+
+            var clientHeight = parseInt(results[2][0], 10);
+            var bodyClientHeight = parseInt(results[3][0], 10);
+            var scrollHeight = parseInt(results[4][0], 10);
+            var bodyScrollHeight = parseInt(results[5][0], 10);
+
+            var maxDocumentElementHeight = Math.max(clientHeight, scrollHeight);
+            var maxBodyHeight = Math.max(bodyClientHeight, bodyScrollHeight);
+            var totalHeight = Math.max(maxDocumentElementHeight, maxBodyHeight);
+
+            return RSVP.resolve({width: totalWidth, height: totalHeight});
+        });
+    };
+
+    /**
+     * Captures the screenshot of the given tab.
+     * @param {Tab} tab The tab for which to capture screenshot.
+     * @param {boolean} withImage If true, the return value is an object with two attributes: "imageBuffer" and "image".
+     *                  Othwerwise - returns a buffer. Default is false.
+     * @return {Promise} A promise which resolves to a buffer containing the PNG bytes of the given tab.
+     */
+    WindowHandler.getTabScreenshot = function (tab, withImage) {
+        var deferred = RSVP.defer();
+
+        //noinspection JSUnresolvedVariable
+        chrome.tabs.captureVisibleTab(tab.windowId, {format: "png"}, function (dataUri) {
+            // Create the image buffer.
+            var image64 = dataUri.replace('data:image/png;base64,', '');
+            var imageBuffer = new Buffer(image64, 'base64');
+
+            if (withImage) {
+                var image = new Image();
+                image.onload = function () {
+                    deferred.resolve({imageBuffer: imageBuffer, image: image});
+                };
+                image.src = dataUri;
+                return;
+            }
+
+            // If we don't need to return an Image object
+            deferred.resolve(imageBuffer);
+        });
+
+        return deferred.promise;
+    };
+
+    /**
+     * Get a part of the page for full page screenshot.
+     * @param {Promise} partsPromise The promise to which to chain the part retrieval promise.
+     * @param {Tab} tab The tab from which we want to get the page part.
+     * @param {object} position The top/left position of the page part.
+     * @return {Promise} A promise which resolves to the page part.
+     * @private
+     */
+    WindowHandler._getPagePart = function (partsPromise, tab, position) {
+        var currentScrollPosition;
+        return partsPromise.then(function () {
+            // Try to scroll to the required position, and give it time to stabilize.
+            return WindowHandler.scrollTo(tab, position.left, position.top).then(function () {
+                return ChromeUtils.sleep(100);
+            }).then(function () {
+                // Get the actual scroll position (if the part size is smaller then the viewport size, then we might
+                // not be able to scroll all the way to the required position).
+                return WindowHandler.getCurrentScrollPosition(tab).then(function (currentScrollPosition_) {
+                    currentScrollPosition = currentScrollPosition_;
+                    return RSVP.resolve();
+                });
+            }).then(function () {
+                return WindowHandler.getTabScreenshot(tab, true);
+            }).then(function (imageObj) {
+                var pngImage = imageObj.image;
+                var part = {image: pngImage,
+                    position: {left: currentScrollPosition.x, top: currentScrollPosition.y},
+                    size: {width: pngImage.width, height: pngImage.height}};
+                return RSVP.resolve(part);
+            });
+        });
+    };
+
+    //noinspection JSValidateJSDoc
+    /**
+     * Stitches the given parts to a full image.
+     * @param fullSize The size of the stitched image. Should have 'width' and 'height' properties.
+     * @param {Array} parts The parts to stitch into an image. Each part should have: 'position'
+     *                      (which includes top/left), 'size' (which includes width/height) and image
+     *                      (a buffer containing PNG bytes) properties.
+     * @return {Promise} A promise which resolves to the stitched image.
+     */
+    WindowHandler.stitchImage = function (fullSize, parts) {
+        // We'll use canvas for stitching an image.
+        var canvas = document.createElement('canvas');
+        canvas.width = fullSize.width;
+        canvas.height = fullSize.height;
+        var ctx = canvas.getContext('2d');
+
+        //noinspection JSLint
+        for (var i = 0; i < parts.length; ++i) {
+            var currentPart = parts[i];
+            //noinspection JSUnresolvedFunction
+            ctx.drawImage(currentPart.image, currentPart.position.left, currentPart.position.top,
+                currentPart.size.width, currentPart.size.height);
+        }
+
+        var stitchedDataUri = canvas.toDataURL();
+        // Create the image buffer.
+        var image64 = stitchedDataUri.replace('data:image/png;base64,', '');
+        return RSVP.resolve(new Buffer(image64, 'base64'));
+    };
+
+    WindowHandler.getFullPageScreenshot = function (tab) {
+        var deferred = RSVP.defer();
+
+        var entirePageSize, originalScrollPosition, partSize;
+        var imageParts = [];
+
+        // Getting the entire page size.
+        WindowHandler.getEntirePageSize(tab).then(function (entirePageSize_) {
+            entirePageSize = entirePageSize_;
+            return RSVP.resolve();
+        }).then(function () {
+            // Saving the original scroll position.
+            return WindowHandler.getCurrentScrollPosition(tab).then(function (originalScrollPosition_) {
+                originalScrollPosition = originalScrollPosition_;
+                return RSVP.resolve();
+            });
+        }).then(function () {
+            // Scrolling to the top/left of the page.
+            return WindowHandler.scrollTo(tab, 0, 0).then(function () {
+                // Give the scrolling time to stabilize.
+                return ChromeUtils.sleep(100);
+            });
+        }).then(function () {
+            // Capture the first image part.
+            return WindowHandler.getTabScreenshot(tab, true).then(function (imageObj) {
+                var image = imageObj.image;
+                // If the image is already of the entire page, return it.
+                if (image.width >= entirePageSize.width && image.height >= entirePageSize.height) {
+                    // Scroll back to the original position
+                    return WindowHandler.scrollTo(tab, originalScrollPosition.x, originalScrollPosition.y)
+                        .then(function () {
+                            // remember we should return the buffer.
+                            deferred.resolve(imageObj.imageBuffer);
+                        });
+                }
+
+                // Calculate the parts size based on the captured image, notice it's smaller than the actual image
+                // size, so we can overwrite fixed position footers or right bars (unfortunately, handling fixed
+                // position headers/left bars)
+                var partSizeWidth = Math.max(image.width - _MAX_SCROLL_BAR_SIZE, _MIN_SCREENSHOT_PART_SIZE);
+                var partSizeHeight = Math.max(image.height - _MAX_SCROLL_BAR_SIZE, _MIN_SCREENSHOT_PART_SIZE);
+                partSize = {width: partSizeWidth, height: partSizeHeight};
+
+                // Create the part for the first image, and add it to the parts list.
+                var part = {image: image, position: {left: 0, top: 0}, size: {width: image.width,
+                    height: image.height}};
+                imageParts.push(part);
+
+                return RSVP.resolve();
+            });
+        }).then(function () {
+            // Get the properties of the regions which will compose the stitched images.
+            var entirePageRegion = {top: 0, left: 0, width: entirePageSize.width, height: entirePageSize.height};
+            var subRegions = GeometryUtils.getSubRegions(entirePageRegion, partSize);
+
+            var i, partRegion;
+            var partsPromise = RSVP.resolve();
+            // Going over each sub region and capturing the respective image part.
+            for (i = 0; i < subRegions.length; ++i) {
+                partRegion = subRegions[i];
+
+                if (partRegion.left === 0 && partRegion.top === 0) {
+                    continue;
+                }
+
+                // Since both the scrolling and the capturing operations are async, we must chain them.
+                //noinspection JSLint
+                partsPromise = WindowHandler._getPagePart(partsPromise, tab,
+                    {left: partRegion.left, top: partRegion.top})
+                    .then(function (part) {
+                        imageParts.push(part);
+                        return RSVP.resolve();
+                    });
+            }
+            return partsPromise;
+        }).then(function () {
+            // Okay, we've got all the parts, return to the original location.
+            return WindowHandler.scrollTo(tab, originalScrollPosition.x, originalScrollPosition.y).then(function () {
+                // Give the scrolling time to stabilize.
+                return ChromeUtils.sleep(100);
+            });
+        }).then(function () {
+            // Stitch the image from the parts we collected and return the stitched image buffer.
+            return WindowHandler.stitchImage(entirePageSize, imageParts).then(function (stitchedImageBuffer) {
+                deferred.resolve(stitchedImageBuffer);
+            });
+        });
+
+        return deferred.promise;
+    };
+
+    /**
+     * Get the screenshot of the current tab.
+     * @param {Tab} tab The tab from which the screenshot should be taken.
+     * @param {boolean} forceFullPageScreenshot If true, a screenshot of the entire page will be taken.
+     * @return {Promise} A promise which resolves to a Buffer containing the PNG bytes of the screenshot.
+     */
+    WindowHandler.getScreenshot = function (tab, forceFullPageScreenshot) {
+
+        // If we should NOT get a full page screenshot, we just capture the given tab.
+        if (!forceFullPageScreenshot) {
+            return WindowHandler.getTabScreenshot(tab);
+        }
+
+        return WindowHandler.getFullPageScreenshot(tab);
+    };
+
+
 
     module.exports = WindowHandler;
 }());

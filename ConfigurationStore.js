@@ -17,6 +17,7 @@
     var _BASELINE_STEP_URL_LK = 'baselineStepUrl';
     var _BASELINE_SELECTION_ID_LK = 'baselineSelectionId';
     var _NEW_TAB_FOR_RESULTS_LK = 'newTabForResults';
+    var _TAKE_FULL_PAGE_SCREENSHOT_LK = 'takeFullPageScreenshot';
     var _EYES_SERVER_URL_LK = 'eyesServer';
 
     var _API_KEY_COOKIE_URL = 'https://applitools.com';
@@ -45,6 +46,7 @@
     var _DEFAULT_VIEWPORT_SIZE = '800x600';
 
     var _DEFAULT_NEW_TAB_FOR_RESULTS = true;
+    var _DEFAULT_TAKE_FULL_PAGE_SCREENSHOT = true;
 
     /**
      * Sets a value for the given key in the storage, or removes the currently set value if the given value is
@@ -196,6 +198,26 @@
             shouldOpen = _DEFAULT_NEW_TAB_FOR_RESULTS;
         }
         return StorageAdapter.setItem(_NEW_TAB_FOR_RESULTS_LK, shouldOpen);
+    };
+
+    /**
+     * @return {Promise} A promise which resolves to the saved choice for takeFullPageScreenshot checkbox,
+     * or the predefined default if there's no such value in the storage.
+     */
+    ConfigurationStore.getTakeFullPageScreenshot = function () {
+        return StorageAdapter.getItem(_TAKE_FULL_PAGE_SCREENSHOT_LK, _DEFAULT_TAKE_FULL_PAGE_SCREENSHOT);
+    };
+
+    /**
+     * @param {boolean} shouldTake The choice to save. Undefined/invalid value will cause the predefined default to be
+     *                              set.
+     * @return {Promise} A promise which resolves when the value is saved, or rejects otherwise.
+     */
+    ConfigurationStore.setTakeFullPageScreenshot = function (shouldTake) {
+        if (shouldTake === undefined) {
+            shouldTake = _DEFAULT_TAKE_FULL_PAGE_SCREENSHOT;
+        }
+        return StorageAdapter.setItem(_TAKE_FULL_PAGE_SCREENSHOT_LK, shouldTake);
     };
 
     /**

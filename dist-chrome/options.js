@@ -47,6 +47,42 @@
     };
 
     /**
+     * Sets whether or not a full page screenshot should be taken when checking a window.
+     * @return {Promise} A promise which resolves when the save is finished.
+     * @private
+     */
+    var _saveTakeFullPageScreenshot = function () {
+        var shouldTake = document.getElementById('takeFullPageScreenshot').checked;
+        return ConfigurationStore.setTakeFullPageScreenshot(shouldTake);
+    };
+
+    /**
+     * Loads the saved value to the options' page takeFullPageScreenshot checkbox.
+     * @return {Promise} A promise which resolves to the element when the checkbox is set.
+     * @private
+     */
+    var _restoreTakeFullPageScreenshot = function () {
+        var takeFullPageScreenshotElement = document.getElementById('takeFullPageScreenshot');
+        return ConfigurationStore.getTakeFullPageScreenshot().then(function (shouldTake) {
+            takeFullPageScreenshotElement.checked = shouldTake;
+            return RSVP.resolve(takeFullPageScreenshotElement);
+        });
+    };
+
+    /**
+     * Loads the required value and sets required listeners.
+     * @return {Promise} A promise which resolves to the element when the initialization is finished.
+     * @private
+     */
+    var _initTakeFullPageScreenshot = function () {
+        return _restoreTakeFullPageScreenshot().then(function (element) {
+            // Registering for the change event so we'll know when to update the element.
+            element.addEventListener('change', _saveTakeFullPageScreenshot);
+            return RSVP.resolve(element);
+        });
+    };
+
+    /**
      * Sets the Eyes server URL.
      * @return {Promise} A promise which resolves when the save is finished.
      * @private
@@ -120,8 +156,8 @@
      */
     var _initPage = function () {
         // We're done when ALL options are loaded.
-        return RSVP.all([Applitools.optionsOpened(), _initNewTabForResults(), _initEyesServerUrl(),
-            _initRestoreDefaultUrlButton(), _restoreLogs()]);
+        return RSVP.all([Applitools.optionsOpened(), _initNewTabForResults(), _initTakeFullPageScreenshot(),
+            _initEyesServerUrl(), _initRestoreDefaultUrlButton(), _restoreLogs()]);
     };
 
     document.addEventListener('DOMContentLoaded', _initPage);

@@ -32,7 +32,7 @@ $OPTION_BORDER_COLOR: #b4b4b4;
   vertical-align: top;
 }
 
-#newTabForResults {
+.optionCheckbox {
   margin-right: 16px;
 }
 
@@ -88,7 +88,7 @@ $OPTION_BORDER_COLOR: #b4b4b4;
   display: block;
   border: 1px solid $OPTION_BORDER_COLOR;
   width: 893px;
-  height: 236px;
+  height: 96px;
   padding: 28px 40px 38px 27px;
   margin-left: 34px;
   margin-top: 11px;

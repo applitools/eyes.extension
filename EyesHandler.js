@@ -5,13 +5,24 @@
     "use strict";
 
     //noinspection JSUnresolvedFunction
-    var Eyes = require('eyes.images').Eyes,
-        ConsoleLogHandler = require('eyes.images').ConsoleLogHandler,
+    var RSVP = require('rsvp'),
+        EyesImages = require('eyes.images'),
+        Eyes = EyesImages.Eyes,
+        ConsoleLogHandler = EyesImages.ConsoleLogHandler,
+        EyesUtils = require('eyes.utils'),
+        PromiseFactory = EyesUtils.PromiseFactory,
         ConfigurationStore = require('./ConfigurationStore.js');
 
-    var EyesCore = {};
+    PromiseFactory.setFactoryMethods(function (asyncAction) {
+        return new RSVP.Promise(asyncAction);
+    }, function () {
+        return RSVP.defer();
+    });
+    EyesUtils.setPromiseFactory(PromiseFactory);
 
-    EyesCore.testImage = function (testParams, image, tag) {
+    var EyesHandler = {};
+
+    EyesHandler.testImage = function (testParams, image, tag) {
         return ConfigurationStore.getEyesServerUrl().then(function (eyesServerUrl) {
             var eyes = new Eyes(eyesServerUrl);
             eyes.setLogHandler(new ConsoleLogHandler(true));
@@ -41,5 +52,5 @@
     };
 
     //noinspection JSUnresolvedVariable
-    module.exports = EyesCore;
+    module.exports = EyesHandler;
 }());
