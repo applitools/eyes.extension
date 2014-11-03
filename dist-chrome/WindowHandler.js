@@ -199,13 +199,28 @@
     };
 
     /**
+     * Gets the device pixel ratio.
+     * @param {Tab} tab The tab in which we'll execute the script to get the ratio
+     * @return {Promise} A promise which resolves to the device pixel ratio (float type).
+     */
+    WindowHandler.getDevicePixelRatio = function (tab) {
+        //noinspection JSUnresolvedVariable
+        return ChromeUtils.executeScript(tab.id, 'window.devicePixelRatio')
+            .then(function (results) {
+                var devicePixelRatio = parseFloat(results[0]);
+                return RSVP.resolve(devicePixelRatio);
+            });
+    };
+
+    /**
      * Captures the screenshot of the given tab.
      * @param {Tab} tab The tab for which to capture screenshot.
      * @param {boolean} withImage If true, the return value is an object with two attributes: "imageBuffer" and "image".
-     *                  Othwerwise - returns a buffer. Default is false.
+     *                  Otherwise - returns a buffer. Default is false.
      * @return {Promise} A promise which resolves to a buffer containing the PNG bytes of the given tab.
      */
     WindowHandler.getTabScreenshot = function (tab, withImage) {
+        withImage = withImage || false;
         var deferred = RSVP.defer();
 
         //noinspection JSUnresolvedVariable
@@ -266,25 +281,31 @@
     //noinspection JSValidateJSDoc
     /**
      * Stitches the given parts to a full image.
-     * @param fullSize The size of the stitched image. Should have 'width' and 'height' properties.
+     * @param {object} fullSize The size of the stitched image. Should have 'width' and 'height' properties.
+     * @param {float} devicePixelRatio The ratio between device pixels and css pixels.
      * @param {Array} parts The parts to stitch into an image. Each part should have: 'position'
      *                      (which includes top/left), 'size' (which includes width/height) and image
      *                      (a buffer containing PNG bytes) properties.
      * @return {Promise} A promise which resolves to the stitched image.
      */
-    WindowHandler.stitchImage = function (fullSize, parts) {
+    WindowHandler.stitchImage = function (fullSize, devicePixelRatio, parts) {
         // We'll use canvas for stitching an image.
         var canvas = document.createElement('canvas');
         canvas.width = fullSize.width;
         canvas.height = fullSize.height;
         var ctx = canvas.getContext('2d');
+        var scaleRatio = 1 / devicePixelRatio;
+        ctx.scale(scaleRatio, scaleRatio);
+
 
         //noinspection JSLint
         for (var i = 0; i < parts.length; ++i) {
             var currentPart = parts[i];
+            var leftInScale = currentPart.position.left / scaleRatio;
+            var topInScale = currentPart.position.top / scaleRatio;
+
             //noinspection JSUnresolvedFunction
-            ctx.drawImage(currentPart.image, currentPart.position.left, currentPart.position.top,
-                currentPart.size.width, currentPart.size.height);
+            ctx.drawImage(currentPart.image, leftInScale, topInScale);
         }
 
         var stitchedDataUri = canvas.toDataURL();
@@ -293,10 +314,15 @@
         return RSVP.resolve(new Buffer(image64, 'base64'));
     };
 
+    /**
+     * Get the full page screenshot of the current tab.
+     * @param {Tab} tab The tab from which the screenshot should be taken.
+     * @return {Promise} A promise which resolves to a Buffer containing the PNG bytes of the screenshot.
+     */
     WindowHandler.getFullPageScreenshot = function (tab) {
         var deferred = RSVP.defer();
 
-        var entirePageSize, originalScrollPosition, partSize;
+        var entirePageSize, originalScrollPosition, partSize, devicePixelRatio;
         var imageParts = [];
 
         // Getting the entire page size.
@@ -310,6 +336,12 @@
                 return RSVP.resolve();
             });
         }).then(function () {
+            // Saving the original scroll position.
+            return WindowHandler.getDevicePixelRatio(tab).then(function (devicePixelRatio_) {
+                devicePixelRatio = devicePixelRatio_;
+                return RSVP.resolve();
+            });
+        }).then(function () {
             // Scrolling to the top/left of the page.
             return WindowHandler.scrollTo(tab, 0, 0).then(function () {
                 // Give the scrolling time to stabilize.
@@ -319,8 +351,12 @@
             // Capture the first image part.
             return WindowHandler.getTabScreenshot(tab, true).then(function (imageObj) {
                 var image = imageObj.image;
+                // The image's width and height are in device pixels, so we need to convert them to css pixels
+                var imageCssWidth = image.width / devicePixelRatio;
+                var imageCssHeight = image.height / devicePixelRatio;
+
                 // If the image is already of the entire page, return it.
-                if (image.width >= entirePageSize.width && image.height >= entirePageSize.height) {
+                if (imageCssWidth >= entirePageSize.width && imageCssHeight >= entirePageSize.height) {
                     // Scroll back to the original position
                     return WindowHandler.scrollTo(tab, originalScrollPosition.x, originalScrollPosition.y)
                         .then(function () {
@@ -332,8 +368,8 @@
                 // Calculate the parts size based on the captured image, notice it's smaller than the actual image
                 // size, so we can overwrite fixed position footers or right bars (unfortunately, handling fixed
                 // position headers/left bars)
-                var partSizeWidth = Math.max(image.width - _MAX_SCROLL_BAR_SIZE, _MIN_SCREENSHOT_PART_SIZE);
-                var partSizeHeight = Math.max(image.height - _MAX_SCROLL_BAR_SIZE, _MIN_SCREENSHOT_PART_SIZE);
+                var partSizeWidth = Math.max(imageCssWidth - _MAX_SCROLL_BAR_SIZE, _MIN_SCREENSHOT_PART_SIZE);
+                var partSizeHeight = Math.max(imageCssHeight - _MAX_SCROLL_BAR_SIZE, _MIN_SCREENSHOT_PART_SIZE);
                 partSize = {width: partSizeWidth, height: partSizeHeight};
 
                 // Create the part for the first image, and add it to the parts list.
@@ -376,9 +412,10 @@
             });
         }).then(function () {
             // Stitch the image from the parts we collected and return the stitched image buffer.
-            return WindowHandler.stitchImage(entirePageSize, imageParts).then(function (stitchedImageBuffer) {
-                deferred.resolve(stitchedImageBuffer);
-            });
+            return WindowHandler.stitchImage(entirePageSize, devicePixelRatio, imageParts)
+                .then(function (stitchedImageBuffer) {
+                    deferred.resolve(stitchedImageBuffer);
+                });
         });
 
         return deferred.promise;
@@ -394,7 +431,7 @@
 
         // If we should NOT get a full page screenshot, we just capture the given tab.
         if (!forceFullPageScreenshot) {
-            return WindowHandler.getTabScreenshot(tab);
+            return WindowHandler.getTabScreenshot(tab, false);
         }
 
         return WindowHandler.getFullPageScreenshot(tab);
