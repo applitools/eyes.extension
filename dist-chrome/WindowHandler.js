@@ -483,6 +483,8 @@
             .then(function (originalOverflowResults_) {
                 originalOverflow = originalOverflowResults_[0];
             }).then(function () {
+                return ChromeUtils.sleep(150); // Let the scrollbars time to disappear.
+            }).then(function () {
                 // If we should NOT get a full page screenshot, we just capture the given tab.
                 if (!forceFullPageScreenshot) {
                     return WindowHandler.getDevicePixelRatio(tab).then(function (devicePixelRatio) {
