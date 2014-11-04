@@ -475,19 +475,30 @@
      * @return {Promise} A promise which resolves to a Buffer containing the PNG bytes of the screenshot.
      */
     WindowHandler.getScreenshot = function (tab, forceFullPageScreenshot) {
+        //noinspection JSUnresolvedVariable
+        var tabId = tab.id;
+        var originalOverflow, imageBuffer;
 
-        // If we should NOT get a full page screenshot, we just capture the given tab.
-        if (!forceFullPageScreenshot) {
-            return WindowHandler.getDevicePixelRatio(tab).then(function (devicePixelRatio) {
-                var scaleRatio = 1/ devicePixelRatio;
-                return WindowHandler.getTabScreenshot(tab, false, scaleRatio);
+        return ChromeUtils.executeScript(tabId, 'var origOF = document.documentElement.style.overflow; document.documentElement.style.overflow = "hidden"; origOF')
+            .then(function (originalOverflowResults_) {
+                originalOverflow = originalOverflowResults_[0];
+            }).then(function () {
+                // If we should NOT get a full page screenshot, we just capture the given tab.
+                if (!forceFullPageScreenshot) {
+                    return WindowHandler.getDevicePixelRatio(tab).then(function (devicePixelRatio) {
+                        var scaleRatio = 1 / devicePixelRatio;
+                        return WindowHandler.getTabScreenshot(tab, false, scaleRatio);
+                    });
+                }
+
+                return WindowHandler.getFullPageScreenshot(tab);
+            }).then(function (imageBuffer_) {
+                imageBuffer = imageBuffer_;
+                return ChromeUtils.executeScript(tabId, 'document.documentElement.style.overflow="' + originalOverflow + '"');
+            }).then(function () {
+                return RSVP.resolve(imageBuffer);
             });
-        }
-
-        return WindowHandler.getFullPageScreenshot(tab);
     };
-
-
 
     module.exports = WindowHandler;
 }());
