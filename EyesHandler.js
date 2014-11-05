@@ -28,6 +28,7 @@
             eyes.setLogHandler(new ConsoleLogHandler(true));
             return ConfigurationStore.getApiKey().then(function (apiKey) {
                 eyes.setApiKey(apiKey);
+                eyes.setAgentId('eyes.extension.chrome/1.2');
                 eyes.setMatchLevel(testParams.matchLevel);
                 eyes.setBranchName(testParams.branchName);
                 eyes.setParentBranchName(testParams.parentBranchName);
