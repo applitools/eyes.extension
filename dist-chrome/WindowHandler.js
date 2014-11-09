@@ -250,34 +250,69 @@
      * Captures the screenshot of the given tab.
      * @param {Tab} tab The tab for which to capture screenshot.
      * @param {boolean} withImage If true, the return value is an object with two attributes: "imageBuffer" and "image".
-     *                  Otherwise - returns a buffer. Default is false.
-     * @param {number} scaleRatio The ratio for scaling the image. If this value is undefined or equal to 1.0,
+     *                              Otherwise - returns a buffer. Default is false.
+     * @param {number|undefined} scaleRatio The ratio for scaling the image. If this value is undefined or equal to 1.0,
      *                              no scaling will take place.
+     * @param {Array|undefined} sizesNotToScale An array of size objects (width/height). If the pre-scaled size of the
+     *                                          image matches any of them, then the image will not be scaled.
      * @return {Promise} A promise which resolves to a buffer containing the PNG bytes of the given tab.
      */
-    WindowHandler.getTabScreenshot = function (tab, withImage, scaleRatio) {
+    WindowHandler.getTabScreenshot = function (tab, withImage, scaleRatio, sizesNotToScale) {
         withImage = withImage || false;
         scaleRatio = scaleRatio || 1.0;
         var deferred = RSVP.defer();
 
         //noinspection JSUnresolvedVariable
         chrome.tabs.captureVisibleTab(tab.windowId, {format: "png"}, function (originalDataUri) {
-            // Scale the image.
-            WindowHandler.scaleImage(originalDataUri, scaleRatio).then(function (dataUri) {
+            var updatedImagePromise = RSVP.resolve();
+            // If there are size not to scale, we compare them to the current size of the image.
+            if (sizesNotToScale && sizesNotToScale.length) {
+                updatedImagePromise = updatedImagePromise.then(function () {
+                    var updatedImageDeferred = RSVP.defer();
+                    // Create an image from the dataUri so we can get its width/height.
+                    var image = new Image();
+                    image.onload = function () {
+                        var shouldScale = true;
+                        //noinspection JSLint
+                        for (var i = 0; i < sizesNotToScale.length; ++i) {
+                            // Checking the width is enough for us.
+                            if (image.width === sizesNotToScale[i].width) {
+                                shouldScale = false;
+                                break;
+                            }
+                        }
+                        if (shouldScale) {
+                            WindowHandler.scaleImage(originalDataUri, scaleRatio).then(function (dataUri) {
+                                updatedImageDeferred.resolve(dataUri);
+                            });
+                            return;
+                        }
+                        updatedImageDeferred.resolve(originalDataUri);
+                    };
+                    image.src = originalDataUri;
+                    return updatedImageDeferred.promise;
+                });
+            } else {
+                // If there's no "sizesNotToScale" list, we scale the image.
+                updatedImagePromise = updatedImagePromise.then(function () {
+                    return WindowHandler.scaleImage(originalDataUri, scaleRatio);
+                });
+            }
 
+
+            // Whether or not we scaled the image, we should now return the result.
+            updatedImagePromise.then(function (dataUri) {
                 // Create the image buffer.
                 var image64 = dataUri.replace('data:image/png;base64,', '');
                 var imageBuffer = new Buffer(image64, 'base64');
-
                 if (withImage) {
-                    var image = new Image();
-                    image.onload = function () {
-                        deferred.resolve({imageBuffer: imageBuffer, image: image});
+                    var updatedImage = new Image();
+                    updatedImage.onload = function () {
+                        deferred.resolve({imageBuffer: imageBuffer, image: updatedImage});
                     };
-                    image.src = dataUri;
+                    updatedImage.src = dataUri;
                     return;
                 }
-
                 // If we don't need to return an Image object
                 deferred.resolve(imageBuffer);
             });
@@ -291,10 +326,12 @@
      * @param {Promise} partsPromise The promise to which to chain the part retrieval promise.
      * @param {Tab} tab The tab from which we want to get the page part.
      * @param {object} position The top/left position of the page part.
+     * @param {number} scaleRatio The ratio to scale the image (if needed).
+     * @param {object} viewportSize The expected size of an image.
      * @return {Promise} A promise which resolves to the page part.
      * @private
      */
-    WindowHandler._getPagePart = function (partsPromise, tab, position) {
+    WindowHandler._getPagePart = function (partsPromise, tab, position, scaleRatio, viewportSize) {
         var currentScrollPosition;
         return partsPromise.then(function () {
             // Try to scroll to the required position, and give it time to stabilize.
@@ -309,7 +346,7 @@
                 });
             }).then(function () {
                 // We don't want to scale the image, as this will be performed in the final stitching.
-                return WindowHandler.getTabScreenshot(tab, true, 1);
+                return WindowHandler.getTabScreenshot(tab, true, scaleRatio, [viewportSize]);
             }).then(function (imageObj) {
                 var pngImage = imageObj.image;
                 var part = {image: pngImage,
@@ -324,30 +361,25 @@
     /**
      * Stitches the given parts to a full image.
      * @param {object} fullSize The size of the stitched image. Should have 'width' and 'height' properties.
-     * @param {float} devicePixelRatio The ratio between device pixels and css pixels.
      * @param {Array} parts The parts to stitch into an image. Each part should have: 'position'
      *                      (which includes top/left), 'size' (which includes width/height) and image
      *                      (a buffer containing PNG bytes) properties.
      * @return {Promise} A promise which resolves to the stitched image.
      */
-    WindowHandler.stitchImage = function (fullSize, devicePixelRatio, parts) {
+    WindowHandler.stitchImage = function (fullSize, parts) {
         // We'll use canvas for stitching an image.
         var canvas = document.createElement('canvas');
         canvas.width = fullSize.width;
         canvas.height = fullSize.height;
         var ctx = canvas.getContext('2d');
-        var reverseScaleRatio = 1 / devicePixelRatio;
-        ctx.scale(reverseScaleRatio, reverseScaleRatio);
 
 
         //noinspection JSLint
         for (var i = 0; i < parts.length; ++i) {
             var currentPart = parts[i];
-            var leftInScale = currentPart.position.left / reverseScaleRatio;
-            var topInScale = currentPart.position.top / reverseScaleRatio;
 
             //noinspection JSUnresolvedFunction
-            ctx.drawImage(currentPart.image, leftInScale, topInScale);
+            ctx.drawImage(currentPart.image, currentPart.position.left, currentPart.position.top);
         }
 
         var stitchedDataUri = canvas.toDataURL();
@@ -359,30 +391,24 @@
     /**
      * Get the full page screenshot of the current tab.
      * @param {Tab} tab The tab from which the screenshot should be taken.
+     * @param {number|undefined} scaleRatio The ratio for scaling the image. If this value is undefined or equal to 1.0,
+     *                              no scaling will take place.
+     * @param {object} viewportSize The size of the viewport.
+     * @param {object} entirePageSize The size of the entire page.
      * @return {Promise} A promise which resolves to a Buffer containing the PNG bytes of the screenshot.
      */
-    WindowHandler.getFullPageScreenshot = function (tab) {
+    WindowHandler.getFullPageScreenshot = function (tab, scaleRatio, viewportSize, entirePageSize) {
         var deferred = RSVP.defer();
 
-        var entirePageSize, originalScrollPosition, partSize, devicePixelRatio;
+        var originalScrollPosition, partSize;
         var imageParts = [];
 
-        // Getting the entire page size.
-        WindowHandler.getEntirePageSize(tab).then(function (entirePageSize_) {
-            entirePageSize = entirePageSize_;
+        scaleRatio = scaleRatio || 1.0;
+
+        // Saving the original scroll position.
+        WindowHandler.getCurrentScrollPosition(tab).then(function (originalScrollPosition_) {
+            originalScrollPosition = originalScrollPosition_;
             return RSVP.resolve();
-        }).then(function () {
-            // Saving the original scroll position.
-            return WindowHandler.getCurrentScrollPosition(tab).then(function (originalScrollPosition_) {
-                originalScrollPosition = originalScrollPosition_;
-                return RSVP.resolve();
-            });
-        }).then(function () {
-            // Saving the original scroll position.
-            return WindowHandler.getDevicePixelRatio(tab).then(function (devicePixelRatio_) {
-                devicePixelRatio = devicePixelRatio_;
-                return RSVP.resolve();
-            });
         }).then(function () {
             // Scrolling to the top/left of the page.
             return WindowHandler.scrollTo(tab, 0, 0).then(function () {
@@ -390,79 +416,74 @@
                 return ChromeUtils.sleep(100);
             });
         }).then(function () {
-            // Capture the first image part. Don't perform any scaling on the image yet.
-            return WindowHandler.getTabScreenshot(tab, true, 1).then(function (imageObj) {
-                var image = imageObj.image;
-                // The image's width and height are in device pixels, so we need to convert them to css pixels
-                var imageCssWidth = image.width / devicePixelRatio;
-                var imageCssHeight = image.height / devicePixelRatio;
+            // Capture the first image part, or entire screenshot.
+            return WindowHandler.getTabScreenshot(tab, true, scaleRatio, [viewportSize, entirePageSize]);
+        }).then(function (imageObj) {
+            var image = imageObj.image;
 
-                // If the image is already of the entire page, return it.
-                if (imageCssWidth >= entirePageSize.width && imageCssHeight >= entirePageSize.height) {
-                    // Scroll back to the original position
-                    return WindowHandler.scrollTo(tab, originalScrollPosition.x, originalScrollPosition.y)
-                        .then(function () {
-                            // Since the result is just this image (and not a stitched image), we need to scale it.
-                            var scaleRatio = 1 / devicePixelRatio;
-                            return WindowHandler.scaleImage(image.src, scaleRatio).then(function (scaledDataUri) {
-                                // We should return a buffer.
-                                var image64 = scaledDataUri.replace('data:image/png;base64,', '');
-                                return deferred.resolve(new Buffer(image64, 'base64'));
-                            });
-                        });
-                }
+            // If the screenshot is already the full page screenshot
+            if (image.width >= (entirePageSize.width-1) && image.height >= (entirePageSize.height-1)) {
+                // Scroll back to the original position
+                return WindowHandler.scrollTo(tab, originalScrollPosition.x, originalScrollPosition.y)
+                    .then(function () {
+                        deferred.resolve(imageObj.imageBuffer);
+                    });
+            } else {
 
                 // Calculate the parts size based on the captured image, notice it's smaller than the actual image
                 // size, so we can overwrite fixed position footers or right bars (unfortunately, handling fixed
                 // position headers/left bars)
-                var partSizeWidth = Math.max(imageCssWidth - _MAX_SCROLL_BAR_SIZE, _MIN_SCREENSHOT_PART_SIZE);
-                var partSizeHeight = Math.max(imageCssHeight - _MAX_SCROLL_BAR_SIZE, _MIN_SCREENSHOT_PART_SIZE);
+                var partSizeWidth = Math.max(image.width - _MAX_SCROLL_BAR_SIZE, _MIN_SCREENSHOT_PART_SIZE);
+                var partSizeHeight = Math.max(image.height - _MAX_SCROLL_BAR_SIZE, _MIN_SCREENSHOT_PART_SIZE);
                 partSize = {width: partSizeWidth, height: partSizeHeight};
 
                 // Create the part for the first image, and add it to the parts list.
-                var part = {image: image, position: {left: 0, top: 0}, size: {width: image.width,
-                    height: image.height}};
+                var part = {
+                    image: image, position: {left: 0, top: 0}, size: {
+                        width: image.width,
+                        height: image.height
+                    }
+                };
                 imageParts.push(part);
 
-                return RSVP.resolve();
-            });
-        }).then(function () {
-            // Get the properties of the regions which will compose the stitched images.
-            var entirePageRegion = {top: 0, left: 0, width: entirePageSize.width, height: entirePageSize.height};
-            var subRegions = GeometryUtils.getSubRegions(entirePageRegion, partSize);
+                // Get the properties of the regions which will compose the stitched images.
+                var entirePageRegion = {top: 0, left: 0, width: entirePageSize.width, height: entirePageSize.height};
+                var subRegions = GeometryUtils.getSubRegions(entirePageRegion, partSize);
 
-            var i, partRegion;
-            var partsPromise = RSVP.resolve();
-            // Going over each sub region and capturing the respective image part.
-            for (i = 0; i < subRegions.length; ++i) {
-                partRegion = subRegions[i];
+                var i, partRegion;
+                var partsPromise = RSVP.resolve();
+                // Going over each sub region and capturing the respective image part.
+                for (i = 0; i < subRegions.length; ++i) {
+                    partRegion = subRegions[i];
 
-                if (partRegion.left === 0 && partRegion.top === 0) {
-                    continue;
+                    if (partRegion.left === 0 && partRegion.top === 0) {
+                        continue;
+                    }
+
+                    // Since both the scrolling and the capturing operations are async, we must chain them.
+                    //noinspection JSLint
+                    partsPromise = WindowHandler._getPagePart(partsPromise, tab,
+                        {left: partRegion.left, top: partRegion.top}, scaleRatio, viewportSize)
+                        .then(function (part) {
+                            imageParts.push(part);
+                            return RSVP.resolve();
+                        });
                 }
 
-                // Since both the scrolling and the capturing operations are async, we must chain them.
-                //noinspection JSLint
-                partsPromise = WindowHandler._getPagePart(partsPromise, tab,
-                    {left: partRegion.left, top: partRegion.top})
-                    .then(function (part) {
-                        imageParts.push(part);
-                        return RSVP.resolve();
+                return partsPromise.then(function () {
+                    // Okay, we've got all the parts, return to the original location.
+                    return WindowHandler.scrollTo(tab, originalScrollPosition.x, originalScrollPosition.y).then(function () {
+                        // Give the scrolling time to stabilize.
+                        return ChromeUtils.sleep(100);
                     });
-            }
-            return partsPromise;
-        }).then(function () {
-            // Okay, we've got all the parts, return to the original location.
-            return WindowHandler.scrollTo(tab, originalScrollPosition.x, originalScrollPosition.y).then(function () {
-                // Give the scrolling time to stabilize.
-                return ChromeUtils.sleep(100);
-            });
-        }).then(function () {
-            // Stitch the image from the parts we collected and return the stitched image buffer.
-            return WindowHandler.stitchImage(entirePageSize, devicePixelRatio, imageParts)
-                .then(function (stitchedImageBuffer) {
-                    deferred.resolve(stitchedImageBuffer);
+                }).then(function () {
+                    // Stitch the image from the parts we collected and return the stitched image buffer.
+                    return WindowHandler.stitchImage(entirePageSize, imageParts)
+                        .then(function (stitchedImageBuffer) {
+                            deferred.resolve(stitchedImageBuffer);
+                        });
                 });
+            }
         });
 
         return deferred.promise;
@@ -472,34 +493,52 @@
      * Get the screenshot of the current tab.
      * @param {Tab} tab The tab from which the screenshot should be taken.
      * @param {boolean} forceFullPageScreenshot If true, a screenshot of the entire page will be taken.
+     * @param {object} viewportSize The expected size of the image, in case this is not a full page screenshot.
+     *                                      This helps us to decide whether or not to scale the image.
      * @return {Promise} A promise which resolves to a Buffer containing the PNG bytes of the screenshot.
      */
-    WindowHandler.getScreenshot = function (tab, forceFullPageScreenshot) {
-        //noinspection JSUnresolvedVariable
-        var tabId = tab.id;
-        var originalOverflow, imageBuffer;
+    WindowHandler.getScreenshot = function (tab, forceFullPageScreenshot, viewportSize) {
+        var entirePageSize, scaleRatio;
 
-        return ChromeUtils.executeScript(tabId, 'var origOF = document.documentElement.style.overflow; document.documentElement.style.overflow = "hidden"; origOF')
-            .then(function (originalOverflowResults_) {
-                originalOverflow = originalOverflowResults_[0];
-            }).then(function () {
-                return ChromeUtils.sleep(150); // Let the scrollbars time to disappear.
-            }).then(function () {
-                // If we should NOT get a full page screenshot, we just capture the given tab.
-                if (!forceFullPageScreenshot) {
-                    return WindowHandler.getDevicePixelRatio(tab).then(function (devicePixelRatio) {
-                        var scaleRatio = 1 / devicePixelRatio;
-                        return WindowHandler.getTabScreenshot(tab, false, scaleRatio);
-                    });
-                }
-
-                return WindowHandler.getFullPageScreenshot(tab);
-            }).then(function (imageBuffer_) {
-                imageBuffer = imageBuffer_;
-                return ChromeUtils.executeScript(tabId, 'document.documentElement.style.overflow="' + originalOverflow + '"');
-            }).then(function () {
-                return RSVP.resolve(imageBuffer);
+        return WindowHandler.getEntirePageSize(tab).then(function (entirePageSize_) {
+            entirePageSize = entirePageSize_;
+        }).then(function () {
+            return WindowHandler.getDevicePixelRatio(tab).then(function (devicePixelRatio) {
+                scaleRatio = 1 / devicePixelRatio;
             });
+        }).then(function () {
+            if (forceFullPageScreenshot) {
+                return WindowHandler.getFullPageScreenshot(tab, scaleRatio, viewportSize, entirePageSize);
+            }
+
+            return WindowHandler.getTabScreenshot(tab, false, scaleRatio, [viewportSize, entirePageSize]);
+        });
+
+        //noinspection JSUnresolvedVariable
+        //var tabId = tab.id;
+        //var originalOverflow, imageBuffer;
+
+        //return ChromeUtils.executeScript(tabId, 'var origOF = document.documentElement.style.overflow; document.documentElement.style.overflow = "hidden"; origOF')
+        //    .then(function (originalOverflowResults_) {
+        //        originalOverflow = originalOverflowResults_[0];
+        //    }).then(function () {
+        //        return ChromeUtils.sleep(150); // Let the scrollbars time to disappear.
+        //    }).then(function () {
+        //        // If we should NOT get a full page screenshot, we just capture the given tab.
+        //        if (!forceFullPageScreenshot) {
+        //            return WindowHandler.getDevicePixelRatio(tab).then(function (devicePixelRatio) {
+        //                var scaleRatio = 1 / devicePixelRatio;
+        //                return WindowHandler.getTabScreenshot(tab, false, scaleRatio, viewportSize);
+        //            });
+        //        }
+        //
+        //        return WindowHandler.getFullPageScreenshot(tab);
+        //    }).then(function (imageBuffer_) {
+        //        imageBuffer = imageBuffer_;
+        //        return ChromeUtils.executeScript(tabId, 'document.documentElement.style.overflow="' + originalOverflow + '"');
+        //    }).then(function () {
+        //        return RSVP.resolve(imageBuffer);
+        //    });
     };
 
     module.exports = WindowHandler;

@@ -424,7 +424,7 @@ window.Applitools = (function () {
                                 // We wait a bit before actually taking the screenshot to give the page time to redraw.
                                 setTimeout(function () {
                                     // Get a screenshot of the current tab as PNG.
-                                    WindowHandler.getScreenshot(resizedTab, forceFullPageScreenshot).then(function (image) {
+                                    WindowHandler.getScreenshot(resizedTab, forceFullPageScreenshot, requiredViewportSize).then(function (image) {
                                         var restoredWindowPromise;
                                         var newWindowCreated = originalTabsCount > 1;
                                         restoredWindowPromise = Applitools_._restoreTab(resizedTab, newWindowCreated,
