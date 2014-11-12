@@ -358,25 +358,10 @@
             }
             selectionId = stepUrlSelectionElement.id;
         } else if (userValuesSelectionElement.checked) {
-            var rejectedUserValuesPromise = RSVP.resolve();
-            var invalidUserValuesFound = false;
-            if (!appName.trim()) {
-                invalidUserValuesFound = true;
-                rejectedUserValuesPromise = rejectedUserValuesPromise.then(function () {
-                    _highlightInvalidInput(_getAppNameInputElement());
-                });
-            }
-            if (!testName.trim()) {
-                invalidUserValuesFound = true;
-                rejectedUserValuesPromise = rejectedUserValuesPromise.then(function () {
-                    _highlightInvalidInput(_getTestNameInputElement());
-                });
-            }
-            if (invalidUserValuesFound) {
-                rejectedUserValuesPromise = rejectedUserValuesPromise.then(function () {
-                    return RSVP.reject(new Error('Invalid application/test name'));
-                });
-                return rejectedUserValuesPromise;
+            if (!appName.trim() && !testName.trim()) {
+                _highlightInvalidInput(_getAppNameInputElement());
+                _highlightInvalidInput(_getTestNameInputElement());
+                return RSVP.reject(new Error('Invalid application/test name'));
             }
 
             selectionId = userValuesSelectionElement.id;

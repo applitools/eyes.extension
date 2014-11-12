@@ -315,19 +315,22 @@ window.Applitools = (function () {
                     });
                 });
             } else {
+                var domainRegexResult = /https?:\/\/([\w\.\-]+)?\//.exec(url);
+                var defaultAppName = domainRegexResult ? domainRegexResult[1] : url;
+                var pathRegexResult = /https?:\/\/[\w\.\-]+?(\/\S*)(?:\?|$)/.exec(url);
+                var defaultTestName = pathRegexResult ? pathRegexResult[1] : '/';
+
                 // If the user selected specific app and test names, we use them.
                 if (selectionId === 'userValuesSelection') {
                     testParamsPromise = ConfigurationStore.getBaselineAppName().then(function (appName) {
                         return ConfigurationStore.getBaselineTestName().then(function (testName) {
+                            appName = appName || defaultAppName;
+                            testName = testName || defaultTestName;
                             return RSVP.resolve({appName: appName, testName: testName});
                         });
                     });
                 } else { // Use the domain as the app name, and the path as the test name.
-                    var domainRegexResult = /https?:\/\/([\w\.\-]+)?\//.exec(url);
-                    var appName = domainRegexResult ? domainRegexResult[1] : url;
-                    var pathRegexResult = /https?:\/\/[\w\.\-]+?(\/\S*)(?:\?|$)/.exec(url);
-                    var testName = pathRegexResult ? pathRegexResult[1] : '/';
-                    testParamsPromise = RSVP.resolve({appName: appName, testName: testName});
+                    testParamsPromise = RSVP.resolve({appName: defaultAppName, testName: defaultTestName});
                 }
 
                 testParamsPromise = testParamsPromise.then(function (testParams) {
