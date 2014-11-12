@@ -323,9 +323,9 @@ window.Applitools = (function () {
                         });
                     });
                 } else { // Use the domain as the app name, and the path as the test name.
-                    var domainRegexResult = /https?:\/\/([\w\.]+)?\//.exec(url);
+                    var domainRegexResult = /https?:\/\/([\w\.\-]+)?\//.exec(url);
                     var appName = domainRegexResult ? domainRegexResult[1] : url;
-                    var pathRegexResult = /https?:\/\/[\w\.]+?(\/\S*)(?:\?|$)/.exec(url);
+                    var pathRegexResult = /https?:\/\/[\w\.\-]+?(\/\S*)(?:\?|$)/.exec(url);
                     var testName = pathRegexResult ? pathRegexResult[1] : '/';
                     testParamsPromise = RSVP.resolve({appName: appName, testName: testName});
                 }
