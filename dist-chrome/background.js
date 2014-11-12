@@ -31,6 +31,7 @@ window.Applitools = (function () {
     });
 
     Applitools_.currentState = {
+        batchId: undefined,
         tabToTest: undefined,
         runningTestsCount: 0,
         logs: [],
@@ -283,7 +284,10 @@ window.Applitools = (function () {
      * @private
      */
     Applitools_._getTestParameters = function (url, selectionId) {
-        return ConfigurationStore.getMatchLevel().then(function (matchLevel) {
+        var matchLevel;
+        return ConfigurationStore.getMatchLevel().then(function (matchLevel_) {
+            matchLevel = matchLevel_;
+        }).then(function () {
             var testParamsPromise;
             if (selectionId === 'stepUrlSelection') {
                 testParamsPromise = ConfigurationStore.getBaselineStepUrl().then(function (stepUrl) {
@@ -395,11 +399,31 @@ window.Applitools = (function () {
                 var originalTabsCount = originalWindow.tabs.length;
                 var originalWindowWidth = originalWindow.width;
                 var originalWindowHeight = originalWindow.height;
+
+                var testParams, batchName, shouldUseBatch;
                 ConfigurationStore.getBaselineSelection().then(function (selectionId) {
-                    Applitools_._getTestParameters(url, selectionId).then(function (testParams) {
+                    Applitools_._getTestParameters(url, selectionId).then(function (testParams_) {
+                        testParams = testParams_;
+                        return RSVP.resolve();
+                    }).then(function () {
+                        return ConfigurationStore.getBatchName().then(function (batchName_) {
+                            batchName = batchName_;
+                        });
+                    }).then(function () {
+                        return ConfigurationStore.getShouldUseBatch().then(function (shouldUseBatch_) {
+                            shouldUseBatch = shouldUseBatch_;
+                        });
+                    }).then(function () {
                         var testParamsLogMessage = Applitools_._buildLogMessage(testParams.appName, testParams.testName,
                             "Got tests parameters");
                         Applitools_._log(testParamsLogMessage);
+
+                        if (shouldUseBatch) {
+                            testParams.batch = {
+                                name: batchName,
+                                id: Applitools_.currentState.batchId
+                            };
+                        }
 
                         var requiredViewportSize = testParams.viewportSize;
                         var updatedWindowPromise;

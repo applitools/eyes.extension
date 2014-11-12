@@ -25,10 +25,16 @@
     EyesHandler.testImage = function (testParams, image, tag) {
         return ConfigurationStore.getEyesServerUrl().then(function (eyesServerUrl) {
             var eyes = new Eyes(eyesServerUrl);
+            var apiKey;
             eyes.setLogHandler(new ConsoleLogHandler(true));
-            return ConfigurationStore.getApiKey().then(function (apiKey) {
+            return ConfigurationStore.getApiKey().then(function (apiKey_) {
+                apiKey = apiKey_;
+            }).then(function () {
                 eyes.setApiKey(apiKey);
-                eyes.setAgentId('eyes.extension.chrome/1.2');
+                if (testParams.batch && testParams.batch.id) {
+                    eyes.setBatch(testParams.batch.name, testParams.batch.id);
+                }
+                eyes.setAgentId('eyes.extension.chrome/1.4');
                 eyes.setMatchLevel(testParams.matchLevel);
                 eyes.setBranchName(testParams.branchName);
                 eyes.setParentBranchName(testParams.parentBranchName);

@@ -33,8 +33,12 @@
         --></div>
         <div class="selectionContainer stepUrlContainer" tabindex="-1"><!--
             --><input type="radio" name="userSelection" class="userSelection" id="stepUrlSelection" tabindex="5"><!--
-            --><input type="url" class="userInput longInput" name="stepUrl" id="stepUrl" placeholder="Test step URL" title="A URL to a step in an existing test, which will be used as a baseline." tabindex="6">
-        </div>
+            --><input type="url" class="userInput longInput" name="stepUrl" id="stepUrl" placeholder="Test step URL" title="A URL to a step in an existing test, which will be used as a baseline." tabindex="6"><!--
+        --></div>
+        <div class="selectionContainer batchContainer" tabindex="-1"><!--
+            --><input type="checkbox" name="useBatch" class="userSelection" id="useBatch" tabindex="6"><!--
+            --><input type="text" class="userInput longInput" name="batchName" id="batchName" placeholder="Session name" title="Group tests by session." tabindex="7"><!--
+        --></div>
         <div class="decisionButtonsContainer"><!--
             --><button class="decisionButton" id="baselineOk" tabindex="8">OK</button><!--
             --><button class="decisionButton" id="baselineCancel" tabindex="7">Cancel</button>

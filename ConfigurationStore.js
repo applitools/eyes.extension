@@ -16,6 +16,8 @@
     var _BASELINE_TEST_NAME_LK = 'baselineTestName';
     var _BASELINE_STEP_URL_LK = 'baselineStepUrl';
     var _BASELINE_SELECTION_ID_LK = 'baselineSelectionId';
+    var _BATCH_NAME_LK = 'batchName';
+    var _USE_BATCH_LK = 'useBatch';
     var _NEW_TAB_FOR_RESULTS_LK = 'newTabForResults';
     var _TAKE_FULL_PAGE_SCREENSHOT_LK = 'takeFullPageScreenshot';
     var _EYES_SERVER_URL_LK = 'eyesServer';
@@ -178,6 +180,38 @@
      */
     ConfigurationStore.setBaselineSelection = function (selectionId) {
         return this._setOrRemoveUndefined(_BASELINE_SELECTION_ID_LK, selectionId);
+    };
+
+    /**
+     * @return {Promise} A promise which resolves to the session name, or undefined if there's no such value in the
+     *                  storage.
+     */
+    ConfigurationStore.getBatchName = function () {
+        return StorageAdapter.getItem(_BATCH_NAME_LK, undefined);
+    };
+
+    /**
+     * @param {string} batchName The name to save, or undefined.
+     * @return {Promise} A promise which resolves when the value is saved, or rejects on failure.
+     */
+    ConfigurationStore.setBatchName = function (batchName) {
+        return this._setOrRemoveUndefined(_BATCH_NAME_LK, batchName);
+    };
+
+    /**
+     * @return {Promise} A promise which resolves to whether or not to group tests to a session, or false if there's
+     *                      no such value in the storage.
+     */
+    ConfigurationStore.getShouldUseBatch = function () {
+        return StorageAdapter.getItem(_USE_BATCH_LK, false);
+    };
+
+    /**
+     * @param {boolean} shouldUseBatch Whether or not to group tests to a batch.
+     * @return {Promise} A promise which resolves when the value is saved, or rejects on failure.
+     */
+    ConfigurationStore.setShouldUseBatch = function (shouldUseBatch) {
+        return this._setOrRemoveUndefined(_USE_BATCH_LK, shouldUseBatch);
     };
 
     /**
