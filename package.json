@@ -18,7 +18,7 @@
   "homepage": "https://github.com/applitools/eyes.extension",
   "devDependencies": {
       "eyes.utils": "0.0.2",
-      "eyes.images": "0.0.12",
+      "eyes.images": "0.0.14",
       "rsvp": "*"
   }
 }
