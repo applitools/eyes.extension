@@ -611,13 +611,13 @@
                 return WindowHandler.setZoom(tabId, originalZoom, 300);
             }
         }).then (function () {
+            return RSVP.resolve(imageBuffer);
+        }).finally (function () {
             // If we removed the scrollbars, we place back the original overflow value.
             if (originalOverflow) {
                 //noinspection JSCheckFunctionSignatures
                 return WindowHandler.setOverflow(tabId, originalOverflow, 150);
             }
-        }).then (function () {
-            return RSVP.resolve(imageBuffer);
         });
     };
 
