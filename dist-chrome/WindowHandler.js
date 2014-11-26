@@ -247,6 +247,54 @@
     };
 
     /**
+     * Get the zoom factor of the given tab.
+     * This functionality is only available from Chrome 41 or higher. For lower chrome versions, this function will
+     * return a promise which resolves to undefined.
+     * @param {number} tabId The id of the tab for which to get the zoom factor.
+     * @return {Promise} A promise which resolves to the zoom factor of the given tab (value of type double), or
+     * to undefined if the Chrome version isn't high enough.
+     */
+    WindowHandler.getZoom = function (tabId) {
+        if (typeof chrome.tabs.getZoom !== 'function') {
+            return RSVP.resolve(undefined);
+        }
+
+        var deferred = RSVP.defer();
+        chrome.tabs.getZoom(tabId, function (zoomFactor) {
+            deferred.resolve(zoomFactor);
+        });
+        return deferred.promise;
+    };
+
+    /**
+     * Set the zoom for a given tab.
+     * This functionality is only available from Chrome 41 or higher. If chrome version is lower, this function
+     * will do nothing.
+     * @param {number} tabId The ID of the tab for which to set the zoom.
+     * @param {number} zoomFactor The zoom factor to set.
+     * @param {number|undefined} stabilizationTimeMs (optional) Time to wait in milliseconds after the zoom, to give it
+     *                                              time to render properly, or undefined if there's no need to wait.
+     * @return {Promise} A promise which resolves when the zoom is set.
+     */
+    WindowHandler.setZoom = function (tabId, zoomFactor, stabilizationTimeMs) {
+        if (typeof chrome.tabs.getZoom !== 'function') {
+            return RSVP.resolve();
+        }
+
+        var deferred = RSVP.defer();
+        chrome.tabs.setZoom(tabId, zoomFactor, function () {
+            if (stabilizationTimeMs) {
+                ChromeUtils.sleep(stabilizationTimeMs).then(function () {
+                    deferred.resolve();
+                });
+                return;
+            }
+            deferred.resolve();
+        });
+        return deferred.promise;
+    };
+
+    /**
      * Captures the screenshot of the given tab.
      * @param {Tab} tab The tab for which to capture screenshot.
      * @param {boolean} withImage If true, the return value is an object with two attributes: "imageBuffer" and "image".
@@ -498,10 +546,23 @@
      * @return {Promise} A promise which resolves to a Buffer containing the PNG bytes of the screenshot.
      */
     WindowHandler.getScreenshot = function (tab, forceFullPageScreenshot, viewportSize) {
+        //noinspection JSUnresolvedVariable
+        var tabId = tab.id;
         var entirePageSize, scaleRatio;
+        var originalZoom;
+        var imageBuffer;
 
-        return WindowHandler.getEntirePageSize(tab).then(function (entirePageSize_) {
-            entirePageSize = entirePageSize_;
+        return WindowHandler.getZoom(tabId).then(function (originalZoom_) {
+            originalZoom = originalZoom_;
+        }).then(function () {
+            if (originalZoom !== 1.0) {
+                // set the zoom to 100%
+                return WindowHandler.setZoom(tabId, 1.0, 300);
+            }
+        }).then(function () {
+            return WindowHandler.getEntirePageSize(tab);
+        }).then(function (entirePageSize_) {
+                entirePageSize = entirePageSize_;
         }).then(function () {
             return WindowHandler.getDevicePixelRatio(tab).then(function (devicePixelRatio) {
                 scaleRatio = 1 / devicePixelRatio;
@@ -510,8 +571,15 @@
             if (forceFullPageScreenshot) {
                 return WindowHandler.getFullPageScreenshot(tab, scaleRatio, viewportSize, entirePageSize);
             }
-
             return WindowHandler.getTabScreenshot(tab, false, scaleRatio, [viewportSize, entirePageSize]);
+        }).then(function (imageBuffer_) {
+            imageBuffer = imageBuffer_;
+            // If needed, set the zoom back to its original factor.
+            if (originalZoom !== 1.0) {
+                return WindowHandler.setZoom(tabId, originalZoom, 300);
+            }
+        }).then (function () {
+            return RSVP.resolve(imageBuffer);
         });
 
         //noinspection JSUnresolvedVariable
