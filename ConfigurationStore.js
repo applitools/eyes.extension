@@ -20,6 +20,7 @@
     var _USE_BATCH_LK = 'useBatch';
     var _NEW_TAB_FOR_RESULTS_LK = 'newTabForResults';
     var _TAKE_FULL_PAGE_SCREENSHOT_LK = 'takeFullPageScreenshot';
+    var _REMOVE_SCROLLBARS_LK = 'scrollBars';
     var _EYES_SERVER_URL_LK = 'eyesServer';
 
     var _API_KEY_COOKIE_URL = 'https://applitools.com';
@@ -49,6 +50,7 @@
 
     var _DEFAULT_NEW_TAB_FOR_RESULTS = true;
     var _DEFAULT_TAKE_FULL_PAGE_SCREENSHOT = true;
+    var _DEFAULT_REMOVE_SCROLLBARS = true;
 
     /**
      * Sets a value for the given key in the storage, or removes the currently set value if the given value is
@@ -252,6 +254,26 @@
             shouldTake = _DEFAULT_TAKE_FULL_PAGE_SCREENSHOT;
         }
         return StorageAdapter.setItem(_TAKE_FULL_PAGE_SCREENSHOT_LK, shouldTake);
+    };
+
+    /**
+     * @return {Promise} A promise which resolves to the saved choice, or the predefined default if there's no such
+     * value in the storage.
+     */
+    ConfigurationStore.getRemoveScrollBars = function () {
+        return StorageAdapter.getItem(_REMOVE_SCROLLBARS_LK, _DEFAULT_REMOVE_SCROLLBARS);
+    };
+
+    /**
+     * @param {boolean} shouldRemove The choice to save. Undefined/invalid value will cause the predefined default to be
+     *                              set.
+     * @return {Promise} A promise which resolves when the value is saved, or rejects otherwise.
+     */
+    ConfigurationStore.setRemoveScrollBars = function (shouldRemove) {
+        if (shouldRemove === undefined) {
+            shouldRemove = _DEFAULT_REMOVE_SCROLLBARS;
+        }
+        return StorageAdapter.setItem(_REMOVE_SCROLLBARS_LK, shouldRemove);
     };
 
     /**

@@ -450,37 +450,41 @@ window.Applitools = (function () {
 
                                 // We wait a bit before actually taking the screenshot to give the page time to redraw.
                                 setTimeout(function () {
-                                    // Get a screenshot of the current tab as PNG.
-                                    WindowHandler.getScreenshot(resizedTab, forceFullPageScreenshot, requiredViewportSize).then(function (image) {
-                                        var restoredWindowPromise;
-                                        var newWindowCreated = originalTabsCount > 1;
-                                        restoredWindowPromise = Applitools_._restoreTab(resizedTab, newWindowCreated,
-                                            resizedWindow, originalWindow, originalTabIndex, {
-                                                width: originalWindowWidth,
-                                                height: originalWindowHeight
-                                            });
-                                        restoredWindowPromise.then(function () {
-                                            // Run the test
-                                            EyesHandler.testImage(testParams, image, title)
-                                                .then(function (testResults) {
-                                                    ConfigurationStore.getNewTabForResults()
-                                                        .then(function (shouldOpen) {
-                                                            if (shouldOpen) {
-                                                                var baselineId = JSON.stringify(testParams),
-                                                                    tabId = _resultTabs[baselineId];
+                                    ConfigurationStore.getRemoveScrollBars().then(function (removeScrollBars) {
+                                        // Get a screenshot of the current tab as PNG.
+                                        WindowHandler.getScreenshot(resizedTab, forceFullPageScreenshot, removeScrollBars, requiredViewportSize).then(function (image) {
+                                            var restoredWindowPromise;
+                                            var newWindowCreated = originalTabsCount > 1;
+                                            restoredWindowPromise = Applitools_._restoreTab(resizedTab, newWindowCreated,
+                                                resizedWindow, originalWindow, originalTabIndex, {
+                                                    width: originalWindowWidth,
+                                                    height: originalWindowHeight
+                                                });
+                                            restoredWindowPromise.then(function () {
+                                                // Run the test
+                                                EyesHandler.testImage(testParams, image, title)
+                                                    .then(function (testResults) {
+                                                        ConfigurationStore.getNewTabForResults()
+                                                            .then(function (shouldOpen) {
+                                                                if (shouldOpen) {
+                                                                    var baselineId = JSON.stringify(testParams),
+                                                                        tabId = _resultTabs[baselineId];
 
-                                                                if (tabId) {
-                                                                    // This baseline already had a result tab. If it's open
-                                                                    // we will reuse it
-                                                                    chrome.tabs.update(tabId, {url: testResults.url},
-                                                                        function (tab) {
-                                                                            if (tab) {
-                                                                                deferred.resolve(testResults);
-                                                                                Applitools_._testEnded(testParams.appName,
-                                                                                    testParams.testName);
-                                                                            } else {
-                                                                                chrome.tabs.create({windowId: originalWindowId, url: testResults.url, active: false},
-                                                                                    function (tab) {
+                                                                    if (tabId) {
+                                                                        // This baseline already had a result tab. If it's open
+                                                                        // we will reuse it
+                                                                        chrome.tabs.update(tabId, {url: testResults.url},
+                                                                            function (tab) {
+                                                                                if (tab) {
+                                                                                    deferred.resolve(testResults);
+                                                                                    Applitools_._testEnded(testParams.appName,
+                                                                                        testParams.testName);
+                                                                                } else {
+                                                                                    chrome.tabs.create({
+                                                                                        windowId: originalWindowId,
+                                                                                        url: testResults.url,
+                                                                                        active: false
+                                                                                    }, function (tab) {
                                                                                         if (tab) {
                                                                                             _resultTabs[baselineId] = tab.id;
                                                                                         }
@@ -488,11 +492,14 @@ window.Applitools = (function () {
                                                                                         Applitools_._testEnded(testParams.appName,
                                                                                             testParams.testName);
                                                                                     });
-                                                                            }
-                                                                        });
-                                                                } else {
-                                                                    chrome.tabs.create({windowId: originalWindowId, url: testResults.url, active: false},
-                                                                        function (tab) {
+                                                                                }
+                                                                            });
+                                                                    } else {
+                                                                        chrome.tabs.create({
+                                                                            windowId: originalWindowId,
+                                                                            url: testResults.url,
+                                                                            active: false
+                                                                        }, function (tab) {
                                                                             if (tab) {
                                                                                 _resultTabs[baselineId] = tab.id;
                                                                             }
@@ -500,20 +507,21 @@ window.Applitools = (function () {
                                                                             Applitools_._testEnded(testParams.appName,
                                                                                 testParams.testName);
                                                                         });
+                                                                    }
+                                                                } else {
+                                                                    deferred.resolve(testResults);
+                                                                    Applitools_._testEnded(testParams.appName,
+                                                                        testParams.testName);
                                                                 }
-                                                            } else {
-                                                                deferred.resolve(testResults);
-                                                                Applitools_._testEnded(testParams.appName,
-                                                                    testParams.testName);
-                                                            }
-                                                        });
-                                                }).catch(function () {
-                                                    deferred.reject();
-                                                    Applitools_._onError("An error occurred while running the test.",
-                                                        testParams.appName, testParams.testName);
-                                                });
-                                        });
-                                    }); // Applitools_.getScreenshot
+                                                            });
+                                                    }).catch(function () {
+                                                        deferred.reject();
+                                                        Applitools_._onError("An error occurred while running the test.",
+                                                            testParams.appName, testParams.testName);
+                                                    });
+                                            });
+                                        }); // Applitools_.getScreenshot
+                                    });
                                 }, 1000);
                             }).catch(function (invalidSizeWindow) { //Handling resize failure.
                                 // The window will only contain a single tab (the one we want).
@@ -526,9 +534,10 @@ window.Applitools = (function () {
 
                                 restoredWindowPromise.then(function () {
                                     deferred.reject();
-                                    Applitools_._onError('Failed to set viewport size ' + requiredViewportSize.width + 'x' +
-                                    requiredViewportSize.height + ' (got ' + resizedTab.width +
-                                    'x' + resizedTab.height + ' instead)', testParams.appName, testParams.testName);
+                                    Applitools_._onError('Failed to set viewport size ' + requiredViewportSize.width
+                                        + 'x' + requiredViewportSize.height + ' (got ' + resizedTab.width
+                                        + 'x' + resizedTab.height + ' instead)',
+                                        testParams.appName, testParams.testName);
                                 });
                             });
                         });

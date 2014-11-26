@@ -70,7 +70,7 @@
     };
 
     /**
-     * Loads the required value and sets required listeners.
+     * Loads the required value and sets the required listeners.
      * @return {Promise} A promise which resolves to the element when the initialization is finished.
      * @private
      */
@@ -78,6 +78,42 @@
         return _restoreTakeFullPageScreenshot().then(function (element) {
             // Registering for the change event so we'll know when to update the element.
             element.addEventListener('change', _saveTakeFullPageScreenshot);
+            return RSVP.resolve(element);
+        });
+    };
+
+    /**
+     * Sets whether or not we should hide the scrollbars before taking a screenshot.
+     * @return {Promise} A promise which resolves when the save is finished.
+     * @private
+     */
+    var _saveRemoveScrollBars = function () {
+        var shouldRemove = document.getElementById('removeScrollBars').checked;
+        return ConfigurationStore.setRemoveScrollBars(shouldRemove);
+    };
+
+    /**
+     * Loads the saved value to the checkbox.
+     * @return {Promise} A promise which resolves to the element when the checkbox is set.
+     * @private
+     */
+    var _restoreRemoveScrollBars = function () {
+        var removeScrollBarsElement = document.getElementById('removeScrollBars');
+        return ConfigurationStore.getRemoveScrollBars().then(function (shouldRemove) {
+            removeScrollBarsElement.checked = shouldRemove;
+            return RSVP.resolve(removeScrollBarsElement);
+        });
+    };
+
+    /**
+     * Loads the required value and sets the required listeners.
+     * @return {Promise} A promise which resolves to the element when the initialization is finished.
+     * @private
+     */
+    var _initRemoveScrollBars = function () {
+        return _restoreRemoveScrollBars().then(function (element) {
+            // Registering for the change event so we'll know when to update the element.
+            element.addEventListener('change', _saveRemoveScrollBars);
             return RSVP.resolve(element);
         });
     };
@@ -157,7 +193,7 @@
     var _initPage = function () {
         // We're done when ALL options are loaded.
         return RSVP.all([Applitools.optionsOpened(), _initNewTabForResults(), _initTakeFullPageScreenshot(),
-            _initEyesServerUrl(), _initRestoreDefaultUrlButton(), _restoreLogs()]);
+            _initRemoveScrollBars(), _initEyesServerUrl(), _initRestoreDefaultUrlButton(), _restoreLogs()]);
     };
 
     document.addEventListener('DOMContentLoaded', _initPage);

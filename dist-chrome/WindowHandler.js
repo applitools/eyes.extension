@@ -295,6 +295,31 @@
     };
 
     /**
+     * Updates the document's documentElement "overflow" value (mainly used to remove/allow scrollbars).
+     * @param {number} tabId The ID of the tab for which overflow style should be set.
+     * @param {string} overflowValue The values of the overflow to set.
+     * @param {number|undefined} stabilizationTimeMs (optional) The amount of time in milliseconds after setting the
+     *                                                  the overflow to give the browser time to finish the rendering.
+     * @return {Promise|*} A promise which resolves to the original overflow of the document.
+     */
+    WindowHandler.setOverflow = function (tabId, overflowValue, stabilizationTimeMs) {
+        var deferred = RSVP.defer();
+        //noinspection JSLint
+        ChromeUtils.executeScript(tabId,
+            'var origOF = document.documentElement.style.overflow; document.documentElement.style.overflow = "'
+                + overflowValue
+                + '"; origOF',
+                stabilizationTimeMs)
+            .then(function (originalOverflowResults) {
+                deferred.resolve(originalOverflowResults[0]);
+            });
+
+        return deferred.promise;
+    };
+
+
+
+    /**
      * Captures the screenshot of the given tab.
      * @param {Tab} tab The tab for which to capture screenshot.
      * @param {boolean} withImage If true, the return value is an object with two attributes: "imageBuffer" and "image".
@@ -541,23 +566,30 @@
      * Get the screenshot of the current tab.
      * @param {Tab} tab The tab from which the screenshot should be taken.
      * @param {boolean} forceFullPageScreenshot If true, a screenshot of the entire page will be taken.
+     * @param {boolean} removeScrollBars If true, scrollbars will be removed before taking the screenshot.
      * @param {object} viewportSize The expected size of the image, in case this is not a full page screenshot.
      *                                      This helps us to decide whether or not to scale the image.
      * @return {Promise} A promise which resolves to a Buffer containing the PNG bytes of the screenshot.
      */
-    WindowHandler.getScreenshot = function (tab, forceFullPageScreenshot, viewportSize) {
+    WindowHandler.getScreenshot = function (tab, forceFullPageScreenshot, removeScrollBars, viewportSize) {
         //noinspection JSUnresolvedVariable
         var tabId = tab.id;
-        var entirePageSize, scaleRatio;
-        var originalZoom;
+        var entirePageSize, scaleRatio, originalZoom;
         var imageBuffer;
+        var originalOverflow = undefined;
 
         return WindowHandler.getZoom(tabId).then(function (originalZoom_) {
-            originalZoom = originalZoom_;
+            originalZoom = originalZoom_ ? originalZoom_ : 1.0;
         }).then(function () {
             if (originalZoom !== 1.0) {
                 // set the zoom to 100%
                 return WindowHandler.setZoom(tabId, 1.0, 300);
+            }
+        }).then(function () {
+            if (removeScrollBars) {
+                return WindowHandler.setOverflow(tabId, "hidden", 150).then(function (originalOverflow_) {
+                    originalOverflow = originalOverflow_;
+                });
             }
         }).then(function () {
             return WindowHandler.getEntirePageSize(tab);
@@ -579,34 +611,14 @@
                 return WindowHandler.setZoom(tabId, originalZoom, 300);
             }
         }).then (function () {
+            // If we removed the scrollbars, we place back the original overflow value.
+            if (originalOverflow) {
+                //noinspection JSCheckFunctionSignatures
+                return WindowHandler.setOverflow(tabId, originalOverflow, 150);
+            }
+        }).then (function () {
             return RSVP.resolve(imageBuffer);
         });
-
-        //noinspection JSUnresolvedVariable
-        //var tabId = tab.id;
-        //var originalOverflow, imageBuffer;
-
-        //return ChromeUtils.executeScript(tabId, 'var origOF = document.documentElement.style.overflow; document.documentElement.style.overflow = "hidden"; origOF')
-        //    .then(function (originalOverflowResults_) {
-        //        originalOverflow = originalOverflowResults_[0];
-        //    }).then(function () {
-        //        return ChromeUtils.sleep(150); // Let the scrollbars time to disappear.
-        //    }).then(function () {
-        //        // If we should NOT get a full page screenshot, we just capture the given tab.
-        //        if (!forceFullPageScreenshot) {
-        //            return WindowHandler.getDevicePixelRatio(tab).then(function (devicePixelRatio) {
-        //                var scaleRatio = 1 / devicePixelRatio;
-        //                return WindowHandler.getTabScreenshot(tab, false, scaleRatio, viewportSize);
-        //            });
-        //        }
-        //
-        //        return WindowHandler.getFullPageScreenshot(tab);
-        //    }).then(function (imageBuffer_) {
-        //        imageBuffer = imageBuffer_;
-        //        return ChromeUtils.executeScript(tabId, 'document.documentElement.style.overflow="' + originalOverflow + '"');
-        //    }).then(function () {
-        //        return RSVP.resolve(imageBuffer);
-        //    });
     };
 
     module.exports = WindowHandler;
