@@ -606,18 +606,18 @@
             return WindowHandler.getTabScreenshot(tab, false, scaleRatio, [viewportSize, entirePageSize]);
         }).then(function (imageBuffer_) {
             imageBuffer = imageBuffer_;
+            // If we removed the scrollbars, we place back the original overflow value.
+            if (originalOverflow) {
+                //noinspection JSCheckFunctionSignatures
+                return WindowHandler.setOverflow(tabId, originalOverflow, 150);
+            }
+        }).then (function () {
             // If needed, set the zoom back to its original factor.
             if (originalZoom !== 1.0) {
                 return WindowHandler.setZoom(tabId, originalZoom, 300);
             }
         }).then (function () {
             return RSVP.resolve(imageBuffer);
-        }).finally (function () {
-            // If we removed the scrollbars, we place back the original overflow value.
-            if (originalOverflow) {
-                //noinspection JSCheckFunctionSignatures
-                return WindowHandler.setOverflow(tabId, originalOverflow, 150);
-            }
         });
     };
 

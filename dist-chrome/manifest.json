@@ -4,7 +4,7 @@
     "name": "Applitools Eyes",
     "short_name": "Eyes",
     "description": "Applitools Eyes browser extension allows you to run visual tests directly from the browser. No coding required.",
-    "version": "1.7",
+    "version": "1.8",
 
     "icons": {
         "48": "images/icon_applitools_48.png",
