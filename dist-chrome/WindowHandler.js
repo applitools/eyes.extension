@@ -588,7 +588,7 @@
         }).then(function () {
             if (removeScrollBars) {
                 return WindowHandler.setOverflow(tabId, "hidden", 150).then(function (originalOverflow_) {
-                    originalOverflow = originalOverflow_;
+                    originalOverflow = originalOverflow_ ? originalOverflow_ : '';
                 });
             }
         }).then(function () {
@@ -607,7 +607,7 @@
         }).then(function (imageBuffer_) {
             imageBuffer = imageBuffer_;
             // If we removed the scrollbars, we place back the original overflow value.
-            if (originalOverflow) {
+            if (originalOverflow !== undefined) {
                 //noinspection JSCheckFunctionSignatures
                 return WindowHandler.setOverflow(tabId, originalOverflow, 150);
             }
