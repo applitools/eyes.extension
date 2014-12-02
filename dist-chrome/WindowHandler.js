@@ -126,16 +126,12 @@
 
     /**
      * Get the current scroll position of the given tab.
-     * @param {Tab} tab The tab for which we want to get the scroll position.
+     * @param {number} tabId The ID of the tab for which we want to get the scroll position.
      * @return {Promise} A promise which resolves to the scroll position (x/y).
      */
-    WindowHandler.getCurrentScrollPosition = function (tab) {
-        //noinspection JSUnresolvedVariable
-        var tabId = tab.id;
-        //noinspection JSLint
-        var leftPromise = ChromeUtils.executeScript(tabId, 'var doc = document.documentElement; var resultX = (window.pageXOffset || doc.scrollLeft) - (doc.clientLeft || 0); resultX');
-        //noinspection JSLint
-        var topPromise = ChromeUtils.executeScript(tabId, 'var doc = document.documentElement; var resultY = (window.pageYOffset || doc.scrollTop)  - (doc.clientTop || 0); resultY');
+    WindowHandler.getCurrentScrollPosition = function (tabId) {
+        var leftPromise = ChromeUtils.executeScript(tabId, 'var doc = document.documentElement; var resultX = (window.pageXOffset || doc.scrollLeft) - (doc.clientLeft || 0); resultX', undefined);
+        var topPromise = ChromeUtils.executeScript(tabId, 'var doc = document.documentElement; var resultY = (window.pageYOffset || doc.scrollTop)  - (doc.clientTop || 0); resultY', undefined);
 
         return RSVP.hash({x: leftPromise, y: topPromise}).then(function (results) {
             var x = parseInt(results.x[0], 10);
@@ -147,14 +143,55 @@
 
     /**
      * Scrolls to a given location.
-     * @param {Tab} tab The tab in which we would like to scroll.
+     * @param {number} tabId The ID of the tab in which we would like to scroll.
      * @param {int} x The x value of the position to scroll to.
      * @param {int} y The y value of the position to scroll to.
      * @return {Promise} A promise which resolves when the scroll is executed.
      */
-    WindowHandler.scrollTo = function (tab, x, y) {
-        //noinspection JSUnresolvedVariable
-        return ChromeUtils.executeScript(tab.id, 'window.scrollTo(' + x + ',' + y + ')');
+    WindowHandler.scrollTo = function (tabId, x, y) {
+        return ChromeUtils.executeScript(tabId, 'window.scrollTo(' + x + ',' + y + ')', 150);
+    };
+
+    /**
+     * Get the current transform of the given tab.
+     * @param {number} tabId The ID of the tab for which to get the current transform.
+     * @return {Promise} A promise which resolves to the current transform value.
+     */
+    WindowHandler.getCurrentTransform = function (tabId) {
+        return ChromeUtils.executeScript(tabId, "document.body.style.transform", undefined).then(function (results) {
+            return RSVP.resolve(results[0]);
+        });
+    };
+
+    /**
+     * Get the current transform of the given tab.
+     * @param {number} tabId The ID of the tab for which to get the current transform.
+     * @param {string} transformToSet The transform to set.
+     * @param {number|undefined} stabilizationTimeMs (optional) The amount of time to wait after setting the transform
+     *                                                  to let the browser stabilize (e.g., re-render).
+     * @return {Promise} A promise which resolves to the current transform value.
+     */
+    WindowHandler.setTransform = function (tabId, transformToSet, stabilizationTimeMs) {
+        if (!transformToSet) {
+            transformToSet = '';
+        }
+        return ChromeUtils.executeScript(tabId,
+            "document.body.style.transform = '" + transformToSet + "'",
+            stabilizationTimeMs)
+            .then(function (results) {
+                return RSVP.resolve(results[0]);
+            });
+    };
+
+    /**
+     * CSS translate the document to a given location.
+     * @param {number} tabId The ID of the tab in which we would like to scroll.
+     * @param {int} x The x value of the position to scroll to.
+     * @param {int} y The y value of the position to scroll to.
+     * @return {Promise} A promise which resolves when the scroll is executed.
+     */
+    WindowHandler.translateTo = function (tabId, x, y) {
+        return WindowHandler.setTransform(tabId, 'translate(-' + x + 'px, -' + y + 'px)', 250);
     };
 
     /**
@@ -165,18 +202,18 @@
     WindowHandler.getEntirePageSize = function (tab) {
         //noinspection JSUnresolvedVariable
         var tabId = tab.id;
-        var scrollWidthPromise = ChromeUtils.executeScript(tabId, "document.documentElement.scrollWidth");
-        var bodyScrollWidthPromise = ChromeUtils.executeScript(tabId, "document.body.scrollWidth");
+        var scrollWidthPromise = ChromeUtils.executeScript(tabId, "document.documentElement.scrollWidth", undefined);
+        var bodyScrollWidthPromise = ChromeUtils.executeScript(tabId, "document.body.scrollWidth", undefined);
 
         // IMPORTANT: Notice there's a major difference between scrollWidth
         // and scrollHeight. While scrollWidth is the maximum between an
         // element's width and its content width, scrollHeight might be
         // smaller (!) than the clientHeight, which is why we take the
         // maximum between them.
-        var clientHeightPromise = ChromeUtils.executeScript(tabId, "document.documentElement.clientHeight");
-        var bodyClientHeightPromise = ChromeUtils.executeScript(tabId, "document.body.clientHeight");
-        var scrollHeightPromise = ChromeUtils.executeScript(tabId, "document.documentElement.scrollHeight");
-        var bodyScrollHeightPromise = ChromeUtils.executeScript(tabId, "document.body.scrollHeight");
+        var clientHeightPromise = ChromeUtils.executeScript(tabId, "document.documentElement.clientHeight", undefined);
+        var bodyClientHeightPromise = ChromeUtils.executeScript(tabId, "document.body.clientHeight", undefined);
+        var scrollHeightPromise = ChromeUtils.executeScript(tabId, "document.documentElement.scrollHeight", undefined);
+        var bodyScrollHeightPromise = ChromeUtils.executeScript(tabId, "document.body.scrollHeight", undefined);
 
         return RSVP.all([scrollWidthPromise, bodyScrollWidthPromise, clientHeightPromise, bodyClientHeightPromise,
             scrollHeightPromise, bodyScrollHeightPromise]).then(function (results) {
@@ -205,7 +242,7 @@
      */
     WindowHandler.getDevicePixelRatio = function (tab) {
         //noinspection JSUnresolvedVariable
-        return ChromeUtils.executeScript(tab.id, 'window.devicePixelRatio')
+        return ChromeUtils.executeScript(tab.id, 'window.devicePixelRatio', undefined)
             .then(function (results) {
                 var devicePixelRatio = parseFloat(results[0]);
                 return RSVP.resolve(devicePixelRatio);
@@ -334,6 +371,7 @@
         withImage = withImage || false;
         scaleRatio = scaleRatio || 1.0;
         var deferred = RSVP.defer();
+        var isScaled = true; // we'll scale unless we find that the size match in "sizesNotToScale".
 
         //noinspection JSUnresolvedVariable
         chrome.tabs.captureVisibleTab(tab.windowId, {format: "png"}, function (originalDataUri) {
@@ -345,16 +383,15 @@
                     // Create an image from the dataUri so we can get its width/height.
                     var image = new Image();
                     image.onload = function () {
-                        var shouldScale = true;
                         //noinspection JSLint
                         for (var i = 0; i < sizesNotToScale.length; ++i) {
                             // Checking the width is enough for us.
                             if (image.width === sizesNotToScale[i].width) {
-                                shouldScale = false;
+                                isScaled = false;
                                 break;
                             }
                         }
-                        if (shouldScale) {
+                        if (isScaled) {
                             WindowHandler.scaleImage(originalDataUri, scaleRatio).then(function (dataUri) {
                                 updatedImageDeferred.resolve(dataUri);
                             });
@@ -381,13 +418,13 @@
                 if (withImage) {
                     var updatedImage = new Image();
                     updatedImage.onload = function () {
-                        deferred.resolve({imageBuffer: imageBuffer, image: updatedImage});
+                        deferred.resolve({imageBuffer: imageBuffer, image: updatedImage, isScaled: isScaled});
                     };
                     updatedImage.src = dataUri;
                     return;
                 }
                 // If we don't need to return an Image object
-                deferred.resolve(imageBuffer);
+                deferred.resolve({imageBuffer: imageBuffer, isSclaed: isScaled});
             });
         });
 
@@ -398,25 +435,23 @@
      * Get a part of the page for full page screenshot.
      * @param {Promise} partsPromise The promise to which to chain the part retrieval promise.
      * @param {Tab} tab The tab from which we want to get the page part.
-     * @param {object} position The top/left position of the page part.
+     * @param {object} partRegion The top/left and width/height (after scaling!) of the page part.
      * @param {number} scaleRatio The ratio to scale the image (if needed).
      * @param {object} viewportSize The expected size of an image.
      * @return {Promise} A promise which resolves to the page part.
      * @private
      */
-    WindowHandler._getPagePart = function (partsPromise, tab, position, scaleRatio, viewportSize) {
+    WindowHandler._getPagePart = function (partsPromise, tab, partRegion, scaleRatio, viewportSize) {
         var currentScrollPosition;
+        var position = {left: partRegion.left, top: partRegion.top};
+        var partSize = {width: partRegion.width, height: partRegion.height};
         return partsPromise.then(function () {
             // Try to scroll to the required position, and give it time to stabilize.
-            return WindowHandler.scrollTo(tab, position.left, position.top).then(function () {
+            //noinspection JSUnresolvedVariable
+            return WindowHandler.translateTo(tab.id, position.left, position.top).then(function () {
                 return ChromeUtils.sleep(100);
             }).then(function () {
-                // Get the actual scroll position (if the part size is smaller then the viewport size, then we might
-                // not be able to scroll all the way to the required position).
-                return WindowHandler.getCurrentScrollPosition(tab).then(function (currentScrollPosition_) {
-                    currentScrollPosition = currentScrollPosition_;
-                    return RSVP.resolve();
-                });
+                currentScrollPosition = {x: position.left, y: position.top};
             }).then(function () {
                 // We don't want to scale the image, as this will be performed in the final stitching.
                 return WindowHandler.getTabScreenshot(tab, true, scaleRatio, [viewportSize]);
@@ -424,7 +459,7 @@
                 var pngImage = imageObj.image;
                 var part = {image: pngImage,
                     position: {left: currentScrollPosition.x, top: currentScrollPosition.y},
-                    size: {width: pngImage.width, height: pngImage.height}};
+                    size: partSize};
                 return RSVP.resolve(part);
             });
         });
@@ -446,13 +481,13 @@
         canvas.height = fullSize.height;
         var ctx = canvas.getContext('2d');
 
-
         //noinspection JSLint
         for (var i = 0; i < parts.length; ++i) {
             var currentPart = parts[i];
 
             //noinspection JSUnresolvedFunction
-            ctx.drawImage(currentPart.image, currentPart.position.left, currentPart.position.top);
+            ctx.drawImage(currentPart.image, 0, 0, currentPart.size.width, currentPart.size.height,
+                currentPart.position.left, currentPart.position.top, currentPart.size.width, currentPart.size.height);
         }
 
         var stitchedDataUri = canvas.toDataURL();
@@ -473,49 +508,55 @@
     WindowHandler.getFullPageScreenshot = function (tab, scaleRatio, viewportSize, entirePageSize) {
         var deferred = RSVP.defer();
 
-        var originalScrollPosition, partSize;
+        //noinspection JSUnresolvedVariable
+        var tabId = tab.id;
+        var originalScrollPosition, originalTransform, partSize;
         var imageParts = [];
 
         scaleRatio = scaleRatio || 1.0;
 
         // Saving the original scroll position.
-        WindowHandler.getCurrentScrollPosition(tab).then(function (originalScrollPosition_) {
+        WindowHandler.getCurrentScrollPosition(tabId).then(function (originalScrollPosition_) {
             originalScrollPosition = originalScrollPosition_;
-            return RSVP.resolve();
-        }).then(function () {
             // Scrolling to the top/left of the page.
-            return WindowHandler.scrollTo(tab, 0, 0).then(function () {
-                // Give the scrolling time to stabilize.
-                return ChromeUtils.sleep(100);
-            });
+            return WindowHandler.scrollTo(tabId, 0, 0);
+        }).then(function () {
+            // Get the original transform value for the tab
+            return WindowHandler.getCurrentTransform(tabId);
+        }).then(function (originalTransform_) {
+            originalTransform = originalTransform_;
+            // Translating to "top/left" of the page (notice this is different from Javascript scrolling).
+            return WindowHandler.translateTo(tabId, 0, 0);
+        }).then(function () {
+            return ChromeUtils.sleep(1000);
         }).then(function () {
             // Capture the first image part, or entire screenshot.
             return WindowHandler.getTabScreenshot(tab, true, scaleRatio, [viewportSize, entirePageSize]);
         }).then(function (imageObj) {
             var image = imageObj.image;
 
-            // If the screenshot is already the full page screenshot
+            // If the screenshot is already the full page screenshot, we go back to the original position and
+            // return it.
             if (image.width >= (entirePageSize.width-1) && image.height >= (entirePageSize.height-1)) {
-                // Scroll back to the original position
-                return WindowHandler.scrollTo(tab, originalScrollPosition.x, originalScrollPosition.y)
-                    .then(function () {
+                return WindowHandler.setTransform(tabId, originalTransform, 250).then(function () {
+                    WindowHandler.scrollTo(tabId, originalScrollPosition.x, originalScrollPosition.y).then(function () {
                         deferred.resolve(imageObj.imageBuffer);
                     });
+                });
             } else {
 
                 // Calculate the parts size based on the captured image, notice it's smaller than the actual image
                 // size, so we can overwrite fixed position footers or right bars (unfortunately, handling fixed
-                // position headers/left bars)
+                // position headers/left bars).
                 var partSizeWidth = Math.max(image.width - _MAX_SCROLL_BAR_SIZE, _MIN_SCREENSHOT_PART_SIZE);
                 var partSizeHeight = Math.max(image.height - _MAX_SCROLL_BAR_SIZE, _MIN_SCREENSHOT_PART_SIZE);
                 partSize = {width: partSizeWidth, height: partSizeHeight};
 
                 // Create the part for the first image, and add it to the parts list.
                 var part = {
-                    image: image, position: {left: 0, top: 0}, size: {
-                        width: image.width,
-                        height: image.height
-                    }
+                    image: image,
+                    position: {left: 0, top: 0},
+                    size: partSize
                 };
                 imageParts.push(part);
 
@@ -535,8 +576,7 @@
 
                     // Since both the scrolling and the capturing operations are async, we must chain them.
                     //noinspection JSLint
-                    partsPromise = WindowHandler._getPagePart(partsPromise, tab,
-                        {left: partRegion.left, top: partRegion.top}, scaleRatio, viewportSize)
+                    partsPromise = WindowHandler._getPagePart(partsPromise, tab, partRegion, scaleRatio, viewportSize)
                         .then(function (part) {
                             imageParts.push(part);
                             return RSVP.resolve();
@@ -544,10 +584,13 @@
                 }
 
                 return partsPromise.then(function () {
-                    // Okay, we've got all the parts, return to the original location.
-                    return WindowHandler.scrollTo(tab, originalScrollPosition.x, originalScrollPosition.y).then(function () {
-                        // Give the scrolling time to stabilize.
-                        return ChromeUtils.sleep(100);
+                    return WindowHandler.translateTo(tabId, 0, 0).then (function () {
+                        // Okay, we've got all the parts, return to the original location.
+                        return WindowHandler.scrollTo(tabId, originalScrollPosition.x, originalScrollPosition.y)
+                            .then(function () {
+                                // Give the scrolling time to stabilize.
+                                return ChromeUtils.sleep(100);
+                            });
                     });
                 }).then(function () {
                     // Stitch the image from the parts we collected and return the stitched image buffer.
@@ -603,10 +646,13 @@
             if (forceFullPageScreenshot) {
                 return WindowHandler.getFullPageScreenshot(tab, scaleRatio, viewportSize, entirePageSize);
             }
-            return WindowHandler.getTabScreenshot(tab, false, scaleRatio, [viewportSize, entirePageSize]);
+            return WindowHandler.getTabScreenshot(tab, false, scaleRatio, [viewportSize, entirePageSize])
+                .then(function (imageObj) {
+                    return RSVP.resolve(imageObj.imageBuffer);
+                });
         }).then(function (imageBuffer_) {
             imageBuffer = imageBuffer_;
-            // If we removed the scrollbars, we place back the original overflow value.
+            // If we removed the scrollbars, we need to put back the original overflow value.
             if (originalOverflow !== undefined) {
                 //noinspection JSCheckFunctionSignatures
                 return WindowHandler.setOverflow(tabId, originalOverflow, 150);
