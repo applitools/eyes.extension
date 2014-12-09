@@ -44,5 +44,21 @@
         return deferred.promise;
     };
 
+    /**
+     * Executes a function after a specified delay.
+     * @param {Function} func The function to execute
+     * @param {number} delay The delay in milliseconds.
+     * @return {Promise} Returns a promise which resolves to the return value of {@code func}.
+     */
+    ChromeUtils.defer = function (func, delay) {
+        var deferred = RSVP.defer();
+
+        window.setTimeout(function () {
+            deferred.resolve(func());
+        }, delay);
+
+        return deferred.promise;
+    };
+
     module.exports = ChromeUtils;
 }());

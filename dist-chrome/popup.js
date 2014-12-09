@@ -6,12 +6,14 @@
 
     //noinspection JSUnresolvedFunction
     var ConfigurationStore = require('./../ConfigurationStore.js'),
+        ChromeUtils = require('./ChromeUtils.js'),
         GeneralUtils = require('eyes.utils').GeneralUtils,
         RSVP = require('rsvp');
 
     var Applitools = chrome.extension.getBackgroundPage().Applitools;
 
     var _NOT_DISPLAYED_CLASS = "notDisplayed",
+        _BATCH_OPEN_CLASS = "batchOpen",
         _INVALID_INPUT_CLASS = "invalidInput",
         _SELECTED_CLASS = "selected",
         _DISABLED_CLASS = "disabled",
@@ -21,6 +23,8 @@
         _MAIN_PANEL_ELEMENT_ID = "mainPanel",
         _BASELINE_PANEL_ELEMENT_ID = "baselinePanel",
         _SHOW_BASELINE_ELEMENT_ID = "showBaseline",
+        _BATCH_PANEL_ELEMENT_ID = "batchPanel",
+        _SHOW_BATCH_PANEL_ELEMENT_ID = "showBatchPanel",
         _MATCH_LEVEL_ELEMENT_ID = "matchLevel",
         _VIEWPORT_SIZE_ELEMENT_ID = "viewportSize",
         _RUN_ELEMENT_ID = "run",
@@ -31,7 +35,7 @@
         _USER_VALUES_SELECTION_ELEMENT_ID = "userValuesSelection",
         _DEFAULT_VALUES_SELECTION_ELEMENT_ID = "defaultValuesSelection",
         _BATCH_NAME_ELEMENT_ID = "batchName",
-        _USE_BATCH_CHECKBOX_ID = "useBatch",
+        _RESET_BATCH_ID_ELEMENT_ID = "newBatchId",
         _BASELINE_CANCEL_ELEMENT_ID = "baselineCancel",
         _BASELINE_OK_ELEMENT_ID = "baselineOk";
 
@@ -62,6 +66,72 @@
             selectElement.appendChild(optionElement);
         }
         return RSVP.resolve(selectElement);
+    };
+
+    // Shortcuts for getting DOM elements which are called often.
+    var _getStepUrlInputElement = function () {
+        return document.getElementById(_STEP_URL_ELEMENT_ID);
+    };
+
+    var _getStepUrlSelectionElement = function () {
+        return document.getElementById(_STEP_URL_SELECTION_ELEMENT_ID);
+    };
+
+    var _getAppNameInputElement = function () {
+        return document.getElementById(_APP_NAME_ELEMENT_ID);
+    };
+
+    var _getTestNameInputElement = function () {
+        return document.getElementById(_TEST_NAME_ELEMENT_ID);
+    };
+
+    var _getUserValuesSelectionElement = function () {
+        return document.getElementById(_USER_VALUES_SELECTION_ELEMENT_ID);
+    };
+
+    var _getDefaultValuesSelectionElement = function () {
+        return document.getElementById(_DEFAULT_VALUES_SELECTION_ELEMENT_ID);
+    };
+
+    var _getBatchNameInputElement = function () {
+        return document.getElementById(_BATCH_NAME_ELEMENT_ID);
+    };
+
+    var _getResetBatchIdElement = function () {
+        return document.getElementById(_RESET_BATCH_ID_ELEMENT_ID);
+    };
+
+    var _getBatchPanelElement = function () {
+        return document.getElementById(_BATCH_PANEL_ELEMENT_ID);
+    };
+
+    var _getShowBatchPanelElement = function () {
+        return document.getElementById(_SHOW_BATCH_PANEL_ELEMENT_ID);
+    };
+
+    //noinspection JSUnusedLocalSymbols
+    var _getMainPanelElement = function () {
+        return document.getElementById(_MAIN_PANEL_ELEMENT_ID);
+    };
+
+    var _getDefaultValuesSelectionContainer = function () {
+        return document.getElementsByClassName('defaultValuesContainer')[0];
+    };
+
+    /**
+     * Highlight the given input to notify the user that the value input is invalid.
+     * @param inputElement The input element to highlight.
+     * @return {Promise} A promise which resolves when the highlighting is finished.
+     * @private
+     */
+    var _highlightInvalidInput = function (inputElement) {
+        inputElement.classList.add(_INVALID_INPUT_CLASS);
+        var deferred = RSVP.defer();
+        setTimeout(function () {
+            inputElement.classList.remove(_INVALID_INPUT_CLASS);
+            deferred.resolve();
+        },500);
+        return deferred.promise;
     };
 
     /**
@@ -101,19 +171,28 @@
         var mainPanel = document.getElementById(_MAIN_PANEL_ELEMENT_ID);
         var baselinePanel = document.getElementById(_BASELINE_PANEL_ELEMENT_ID);
         var panelToShow;
+        var batchPanelPromise;
         if (panelId === _BASELINE_PANEL_ELEMENT_ID) {
             panelToShow = baselinePanel;
-            // Basically just display the baseline panel.
-            baselinePanel.className = '';
-            mainPanel.className = _NOT_DISPLAYED_CLASS;
+            baselinePanel.classList.remove(_NOT_DISPLAYED_CLASS);
+            mainPanel.classList.add(_NOT_DISPLAYED_CLASS);
+            batchPanelPromise = _showBatchPanel(false);
         } else {
             // show main panel
             panelToShow = mainPanel;
-            mainPanel.className = '';
-            baselinePanel.className = _NOT_DISPLAYED_CLASS;
+            mainPanel.classList.remove(_NOT_DISPLAYED_CLASS);
+            baselinePanel.classList.add(_NOT_DISPLAYED_CLASS);
+
+            // Whether or not to show the batch panel depends on whether if a batch is set.
+            batchPanelPromise = ConfigurationStore.getShouldUseBatch()
+                .then(function (shouldUseBatch) {
+                    return _showBatchPanel(shouldUseBatch);
+                });
         }
 
-        return RSVP.resolve(panelToShow);
+        return batchPanelPromise.then(function () {
+            return panelToShow;
+        })
     };
 
     /**
@@ -160,6 +239,58 @@
 
                 return RSVP.resolve(baselineButton);
             });
+    };
+
+    /**
+     * Show/Hide the batch panel.
+     * @param shouldShow Whether to show or hide the batch panel.
+     * @return {Promise} A promise which resolves to the batchPanel element.
+     * @private
+     */
+    var _showBatchPanel = function (shouldShow) {
+        var batchPanel = _getBatchPanelElement();
+        var showBatchPanelElement = _getShowBatchPanelElement();
+
+        if (shouldShow) {
+            batchPanel.classList.remove(_NOT_DISPLAYED_CLASS);
+            showBatchPanelElement.classList.add(_BATCH_OPEN_CLASS);
+        } else {
+            batchPanel.classList.add(_NOT_DISPLAYED_CLASS);
+            showBatchPanelElement.classList.remove(_BATCH_OPEN_CLASS);
+        }
+
+        return RSVP.resolve(batchPanel);
+    };
+
+    /**
+     * Handle "use session" toggling.
+     * @return {Promise} A promise which resolves when done handling the toggle.
+     * @private
+     */
+    var _onToggleUseBatch = function () {
+        return ConfigurationStore.getShouldUseBatch().then(function (shouldUseBatch) {
+            // Perform toggle.
+            shouldUseBatch = !shouldUseBatch;
+            // Whenever we "open" the batch panel, we reset the batch ID.
+            if (shouldUseBatch) {
+                _resetBatchId();
+            }
+            return _showBatchPanel(shouldUseBatch).then(function () {
+               return ConfigurationStore.setShouldUseBatch(shouldUseBatch);
+            });
+        });
+    };
+
+    /**
+     * Initializes the main panel's batch button functionality.
+     * @return {Promise} A promise which resolves to the DOM element when initialization is done.
+     * @private
+     */
+    var _initShowBatchPanelButton = function () {
+        var showBatchPanelButton = document.getElementById(_SHOW_BATCH_PANEL_ELEMENT_ID);
+        showBatchPanelButton.addEventListener('click', _onToggleUseBatch);
+
+        return RSVP.resolve(showBatchPanelButton);
     };
 
     /**
@@ -262,63 +393,11 @@
     var _initMainPanel = function () {
         return RSVP.all([_initOptionsButton(),
             _initShowBaselinePanelButton(),
+            _initShowBatchPanelButton(),
             _initMatchLevel(),
             _initViewportSize(),
             _initRunButton()]
         );
-    };
-
-    // Shortcuts for getting DOM elements which are called often.
-    var _getStepUrlInputElement = function () {
-        return document.getElementById(_STEP_URL_ELEMENT_ID);
-    };
-
-    var _getStepUrlSelectionElement = function () {
-        return document.getElementById(_STEP_URL_SELECTION_ELEMENT_ID);
-    };
-
-    var _getAppNameInputElement = function () {
-        return document.getElementById(_APP_NAME_ELEMENT_ID);
-    };
-
-    var _getTestNameInputElement = function () {
-        return document.getElementById(_TEST_NAME_ELEMENT_ID);
-    };
-
-    var _getUserValuesSelectionElement = function () {
-        return document.getElementById(_USER_VALUES_SELECTION_ELEMENT_ID);
-    };
-
-    var _getDefaultValuesSelectionElement = function () {
-        return document.getElementById(_DEFAULT_VALUES_SELECTION_ELEMENT_ID);
-    };
-
-    var _getBatchNameInputElement = function () {
-        return document.getElementById(_BATCH_NAME_ELEMENT_ID);
-    };
-
-    var _getUseBatchCheckboxElement = function () {
-        return document.getElementById(_USE_BATCH_CHECKBOX_ID);
-    };
-
-    var _getDefaultValuesSelectionContainer = function () {
-        return document.getElementsByClassName('defaultValuesContainer')[0];
-    };
-
-    /**
-     * Highlight the given input to notify the user that the value input is invalid.
-     * @param inputElement The input element to highlight.
-     * @return {Promise} A promise which resolves when the highlighting is finished.
-     * @private
-     */
-    var _highlightInvalidInput = function (inputElement) {
-        inputElement.classList.add(_INVALID_INPUT_CLASS);
-        var deferred = RSVP.defer();
-        setTimeout(function () {
-            inputElement.classList.remove(_INVALID_INPUT_CLASS);
-            deferred.resolve();
-        },500);
-        return deferred.promise;
     };
 
     /**
@@ -337,17 +416,6 @@
         var userValuesSelectionElement = _getUserValuesSelectionElement();
         appName = _getAppNameInputElement().value;
         testName = _getTestNameInputElement().value;
-
-        var useBatchCheckboxElement = _getUseBatchCheckboxElement();
-        var batchName = _getBatchNameInputElement().value;
-        if (useBatchCheckboxElement.checked) {
-            if (!batchName.trim()) {
-                return _highlightInvalidInput(_getBatchNameInputElement()).then(function () {
-                    return RSVP.reject(new Error('Invalid batch name: ' + batchName));
-                });
-            }
-        }
-
 
         // For the selected type of input we want to make sure values are valid.
         if (stepUrlSelectionElement.checked) {
@@ -377,20 +445,6 @@
             }).then(function () {
                 var baselineButton = document.getElementById(_SHOW_BASELINE_ELEMENT_ID);
                 return _updateShowBaselinePanelButton(baselineButton, selectionId);
-            }).then(function () {
-                var shouldUseBatch = useBatchCheckboxElement.checked;
-                return ConfigurationStore.setShouldUseBatch(shouldUseBatch).then(function () {
-                    return ConfigurationStore.getBatchName().then(function (originalBatchName) {
-                        return ConfigurationStore.setBatchName(batchName).then(function () {
-                            if (shouldUseBatch
-                                    && (originalBatchName !== batchName || !Applitools.currentState.batchId)) {
-                                // If this is a new batch, create a new GUID
-                                Applitools.currentState.batchId = GeneralUtils.guid();
-                            }
-                            return RSVP.resolve();
-                        });
-                    });
-                });
             }).then(function () {
                 return _initViewportSize();
             }).then(function () {
@@ -481,35 +535,6 @@
         _getDefaultValuesSelectionElement().checked = true;
         _onInputElementsUnSelected([_getStepUrlInputElement(), _getAppNameInputElement(), _getTestNameInputElement()]);
         return RSVP.resolve(_getDefaultValuesSelectionContainer());
-    };
-
-    /**
-     * Handles user selection of batches.
-     * @return {Promise} A promise which resolves to the batch name element.
-     * @private
-     */
-    var _onBatchNameSelected = function () {
-        _getUseBatchCheckboxElement().checked = true;
-        if (!Applitools.currentState.batchId) {
-            Applitools.currentState.batchId = GeneralUtils.guid();
-        }
-        _onInputElementsSelected([_getBatchNameInputElement()]);
-        return RSVP.resolve(_getBatchNameInputElement());
-    };
-
-    /**
-     * Handles user click of batch selection.
-     * @return {Promise} A promise which resolves to the batch checkbox.
-     * @private
-     */
-    var _onUseBatchCheckboxClicked = function () {
-        var checkboxElement = _getUseBatchCheckboxElement();
-        if (checkboxElement.checked) {
-            _onBatchNameSelected();
-        } else {
-            _onInputElementsUnSelected([_getBatchNameInputElement()]);
-        }
-        return RSVP.resolve(_getUseBatchCheckboxElement());
     };
 
     //noinspection SpellCheckingInspection
@@ -603,36 +628,84 @@
     };
 
     /**
-     * Initializes the baseline panel's "batch" element with the required listeners.
+     * Sets a new batch ID in the background script state.
+     * @private
+     */
+    var _resetBatchId = function () {
+        Applitools.currentState.batchId = GeneralUtils.guid();
+    };
+
+    /**
+     * @return {string|undefined} The current batch ID, if exists.
+     * @private
+     */
+    var _getBatchId = function () {
+        return Applitools.currentState.batchId;
+    };
+
+    /**
+     * Handles batch name change.
+     * @return {Promise} A promise which resolves to the batch name element.
+     * @private
+     */
+    var _onBatchNameChange = function () {
+        var batchNameElement = _getBatchNameInputElement();
+        var batchName = batchNameElement.value.trim() ? batchNameElement.value : undefined;
+        return ConfigurationStore.setBatchName(batchName).then(function () {
+            _resetBatchId();
+            return RSVP.resolve(batchNameElement);
+        });
+    };
+
+    /**
+     * Initializes the batch panel's name element with the required listeners.
      * @return {Promise} A promise which resolves to the batchName element.
      * @private
      */
     var _initBatchName = function () {
-        var batchName, shouldUseBatch;
-        var useBatchCheckboxElement = _getUseBatchCheckboxElement();
         var batchNameInputElement = _getBatchNameInputElement();
-        // Checkbox events
-        useBatchCheckboxElement.addEventListener('click', _onUseBatchCheckboxClicked);
-        // Input element events
-        batchNameInputElement.addEventListener('click', _onBatchNameSelected);
-        batchNameInputElement.addEventListener('keypress', _onBatchNameSelected);
-
-        return ConfigurationStore.getBatchName().then(function (batchName_) {
-            batchName = batchName_;
-            return ConfigurationStore.getShouldUseBatch();
-        }).then(function (shouldUseBatch_) {
-            shouldUseBatch = shouldUseBatch_
-        }).then(function () {
+        // The batch element is always "selected".
+        _onInputElementsSelected([batchNameInputElement]);
+        batchNameInputElement.addEventListener('change', _onBatchNameChange);
+        // Load value into the batch name input
+        return ConfigurationStore.getBatchName().then(function (batchName) {
             batchNameInputElement.value = batchName || '';
-            if (shouldUseBatch) {
-                return _onBatchNameSelected();
-            }
-            return RSVP.resolve();
-        }).then(function () {
-            return _makeOkayable(batchNameInputElement);
-        }).then(function () {
             return RSVP.resolve(batchNameInputElement);
         });
+    };
+
+    /**
+     * Initializes the batch panel's new batch ID element with the required listeners.
+     * @return {Promise} A promise which resolves to the batchName element.
+     * @private
+     */
+    var _initResetBatchId = function () {
+        var newBatchIdElement = _getResetBatchIdElement();
+        // We don't really need the entire "batch name change" functionality, only the GUID reset, but no point
+        newBatchIdElement.addEventListener('click', _resetBatchId);
+        return RSVP.resolve(newBatchIdElement);
+    };
+
+    /**
+     * Initializes the elements on the baseline panel.
+     * @return {Promise} A promise which resolves when all the baseline panel's elements are initialized.
+     * @private
+     */
+    var _initBatchPanel = function () {
+        var shouldUseBatch;
+        return ConfigurationStore.getShouldUseBatch()
+            .then(function (shouldUseBatch_) {
+                shouldUseBatch = shouldUseBatch_;
+                // If we should use batch, but no batch ID is defined yet, we need to set it.
+                if (shouldUseBatch && !_getBatchId()) {
+                    _resetBatchId();
+                }
+                return _initBatchName();
+            }).then(function () {
+                return _initResetBatchId();
+            }).then(function () {
+                return _showBatchPanel(shouldUseBatch);
+            });
     };
 
     /**
@@ -663,7 +736,7 @@
      * @private
      */
     var _initBaselinePanel = function () {
-        return RSVP.all([_initUserSelection(), _initBatchName(), _initBaselineOkButton(), _initBaselineCancelButton()]);
+        return RSVP.all([_initUserSelection(), _initBaselineOkButton(), _initBaselineCancelButton()]);
     };
 
     /**
@@ -672,8 +745,13 @@
      * @private
      */
     var _initPage = function () {
+        // Since we want to make sure the batch panel is initialized before the main panel, and both of them
+        // after a timeout, so we avoid rendering glitches.
+        var mainPanelInitPromise = ChromeUtils.defer(_initBatchPanel, 150).then(function () {
+            return _initMainPanel();
+        });
         return Applitools.prepareToTest().then(function () {
-            return RSVP.all([_initMainPanel(), _initBaselinePanel(), Applitools.popupOpened()]);
+            return RSVP.all([mainPanelInitPromise, _initBaselinePanel(), Applitools.popupOpened()]);
         });
     };
 

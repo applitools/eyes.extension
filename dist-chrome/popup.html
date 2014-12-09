@@ -7,21 +7,26 @@
 </head>
 <body tabindex="-1">
     <div id="mainPanel" tabindex="-1"><!--
-        --><span class="mainPanelElement" id="options" title="Open the options page" tabindex="5"></span><!--
-        --><span class="mainPanelElement button" id="showBaseline" title="Set a custom baseline" tabindex="4"><!--
+        --><span class="mainPanelElement" id="options" title="Open the options page" tabindex="6"></span><!--
+        --><span class="mainPanelElement button" id="showBaseline" title="Set a custom baseline" tabindex="5"><!--
             --><span class="showBaselineText">Baseline...</span><!--
         --></span><!--
-        --><span class="mainPanelElement button selectContainer" id="matchLevelContainer" title="Set the match level for the test" tabindex="3"><!--
+        --><span class="mainPanelElement button selectContainer" id="matchLevelContainer" title="Set the match level for the test" tabindex="4"><!--
             --><select id="matchLevel"></select><!--
             --><span class="dropDownArrow"></span><!--
         --></span><!--
-        --><span class="mainPanelElement button selectContainer" id="viewportSizeContainer" title="Set the viewport size in which the test will run" tabindex="2"><!--
+        --><span class="mainPanelElement button selectContainer" id="viewportSizeContainer" title="Set the viewport size in which the test will run" tabindex="3"><!--
             --><select id="viewportSize"></select><!--
             --><span class="dropDownArrow"></span><!--
         --></span><!--
-        --><span class="mainPanelElement" id="run" title="Run a visual test." tabindex="1"></span>
-    </div>
-    <div id="baselinePanel" class="notDisplayed" tabindex="-1">
+        --><span class="mainPanelElement" id="showBatchPanel" title="Set a session" tabindex="2"></span><!--
+        --><span class="mainPanelElement" id="run" title="Run a visual test." tabindex="1"></span><!--
+    --></div><!--
+    --><div id="batchPanel" class="notDisplayed" tabindex="-1"><!--
+        --><input type="text" class="userInput longInput" name="batchName" id="batchName" placeholder="Session name" title="Group tests by session." tabindex="1"><!--
+        --><span id="newBatchId"></span><!--
+    --></div><!--
+    --><div id="baselinePanel" class="notDisplayed" tabindex="-1">
         <div class="selectionContainer defaultValuesContainer" tabindex="1"><!--
             --><input type="radio" name="userSelection" class="userSelection" id="defaultValuesSelection"><!--
             --><span>Use default values <span id="defaultValuesExplanation">(app name = URL domain, test name = URL path)</span></span><!--
@@ -35,13 +40,9 @@
             --><input type="radio" name="userSelection" class="userSelection" id="stepUrlSelection" tabindex="5"><!--
             --><input type="url" class="userInput longInput" name="stepUrl" id="stepUrl" placeholder="Test step URL" title="A URL to a step in an existing test, which will be used as a baseline." tabindex="6"><!--
         --></div>
-        <div class="selectionContainer batchContainer" tabindex="-1"><!--
-            --><input type="checkbox" name="useBatch" class="userSelection" id="useBatch" tabindex="6"><!--
-            --><input type="text" class="userInput longInput" name="batchName" id="batchName" placeholder="Session name" title="Group tests by session." tabindex="7"><!--
-        --></div>
         <div class="decisionButtonsContainer"><!--
-            --><button class="decisionButton" id="baselineOk" tabindex="8">OK</button><!--
-            --><button class="decisionButton" id="baselineCancel" tabindex="7">Cancel</button>
+            --><button class="decisionButton okButton" id="baselineOk" tabindex="8">OK</button><!--
+            --><button class="decisionButton cancelButton" id="baselineCancel" tabindex="7">Cancel</button>
         </div>
     </div>
     <script src="compiled/bf-popup.js"></script>

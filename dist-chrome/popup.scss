@@ -4,12 +4,13 @@ $BUTTON_HOVER_FONT_COLOR: #0b7ba2;
 
 #mainPanel {
   position: relative;
-  width: 452px;
+  width: 485px;
   height: 52px;
   overflow-y: hidden;
   white-space: nowrap;
   @include userSelect(none);
   cursor: default;
+  outline: none;
 
   .mainPanelElement {
     outline: none;
@@ -181,6 +182,41 @@ $BUTTON_HOVER_FONT_COLOR: #0b7ba2;
 
   }
 
+  #showBatchPanel {
+    display: inline-block;
+    width: 35px;
+    height: 24px;
+    margin: 14px 0 14px 0;
+    //noinspection CssUnknownTarget
+    background: url("../images/no_batch_regular.png") no-repeat 15px 3px;
+    /* border-right: solid 1px #a8a8a8; */
+
+    &:hover {
+      //noinspection CssUnknownTarget
+      background-image: url("../images/no_batch_over.png");
+    }
+
+    &:active {
+      //noinspection CssUnknownTarget
+      background-image: url("../images/no_batch_active.png");
+    }
+
+    &.batchOpen {
+      //noinspection CssUnknownTarget
+      background-image: url("../images/batch_open_regular.png");
+
+      &:hover {
+        //noinspection CssUnknownTarget
+        background-image: url("../images/batch_open_over.png");
+      }
+
+      &:active {
+        //noinspection CssUnknownTarget
+        background-image: url("../images/batch_open_active.png");
+      }
+    }
+  }
+
   #run {
     display: inline-block;
     width: 21px;
@@ -202,15 +238,105 @@ $BUTTON_HOVER_FONT_COLOR: #0b7ba2;
   }
 }
 
+//*** Baseline panel && Batch Panel
+
+.selectionContainer {
+  border-bottom: solid 1px #a8a8a8;
+  height: 52px;
+  padding-right: 18px;
+  outline: none;
+}
+
+.userSelection {
+  // Margins here so that the selection bottom border will be stretched all the way.
+  margin: 20px 18px 0;
+}
+
+.userInput {
+  background-color: #eeeeee;
+  font-style: italic;
+  color: #9b9b9b;
+  border: solid 1px #a8a8a8;
+  @include transitionalProperty(background-color, 1s);
+  text-indent: 5px;
+}
+
+.selected {
+  font-style: normal;
+  color: $DEFAULT_FONT_COLOR;
+  background-color: white;
+}
+
+.invalidInput {
+  background-color: rgb(246, 90, 90);
+}
+
+.shortInput {
+  width: 179px;
+  height: 21px;
+}
+
+.longInput {
+  width: 376px;
+  height: 21px;
+}
+
+#batchName {
+  margin: 15px;
+}
+
+#newBatchId {
+  width: 18px;
+  height: 17px;
+  display: inline-block;
+  background-position-y: 0px;
+  position: relative;
+  top: 4px;
+  left: 3px;
+
+  //noinspection CssUnknownTarget
+  background: url('../images/icon_restart_regular.png') no-repeat;
+
+  &:hover {
+    //noinspection CssUnknownTarget
+    background-image: url('../images/icon_restart_over.png');
+  }
+
+  &:active {
+    //noinspection CssUnknownTarget
+    background-image: url('../images/icon_restart_active.png');
+  }
+}
+
+.decisionButtonsContainer {
+  position: relative;
+  height: 53px;
+  @include userSelect(none);
+  cursor: default;
+  padding-right: 18px;
+}
+
+.decisionButton {
+  @include classicButton;
+  float: right;
+  margin-top: 18px;
+
+  &.cancelButton {
+    margin-right: 16px;
+  }
+}
+
+#batchPanel {
+  outline: none;
+  border-top: solid 1px #a8a8a8;
+
+  #batchName {
+    width: 415px;
+  }
+}
+
 #baselinePanel {
   min-width: 448px;
-
-  .selectionContainer {
-    border-bottom: solid 1px #a8a8a8;
-    height: 52px;
-    padding-right: 18px;
-    outline: none;
-  }
 
   .defaultValuesContainer {
     &:focus {
@@ -223,60 +349,8 @@ $BUTTON_HOVER_FONT_COLOR: #0b7ba2;
     }
   }
 
-  .userSelection {
-    // Margins here so that the selection bottom border will be stretched all the way.
-    margin: 20px 18px 0;
-  }
-
-  .userInput {
-    background-color: #eeeeee;
-    font-style: italic;
-    color: #9b9b9b;
-    border: solid 1px #a8a8a8;
-    @include transitionalProperty(background-color, 1s);
-    text-indent: 5px;
-  }
-
-  .selected {
-    font-style: normal;
-    color: $DEFAULT_FONT_COLOR;
-    background-color: white;
-  }
-
-  .invalidInput {
-    background-color: rgb(246, 90, 90);
-  }
-
-  .shortInput {
-    width: 179px;
-    height: 21px;
-  }
-
-  .longInput {
-    width: 376px;
-    height: 21px;
-  }
-
   #appName {
     margin-right: 16px;
-  }
-
-  .decisionButtonsContainer {
-    position: relative;
-    height: 53px;
-    @include userSelect(none);
-    cursor: default;
-    padding-right: 18px;
-  }
-
-  .decisionButton {
-    @include classicButton;
-    float: right;
-    margin-top: 18px;
-
-    &#baselineCancel {
-      margin-right: 16px;
-    }
   }
 }
 

@@ -421,7 +421,7 @@ window.Applitools = (function () {
                             "Got tests parameters");
                         Applitools_._log(testParamsLogMessage);
 
-                        if (shouldUseBatch) {
+                        if (shouldUseBatch && batchName) {
                             testParams.batch = {
                                 name: batchName,
                                 id: Applitools_.currentState.batchId
