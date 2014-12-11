@@ -391,7 +391,13 @@
      * @private
      */
     var _initMainPanel = function () {
-        return RSVP.all([_initOptionsButton(),
+        // We perform a "set size" to the already existing value avoid the rendering "glitch" which happens on the
+        // first "set size".
+        var setSizePromise = ChromeUtils.defer(function () {
+            _getMainPanelElement().style.height = '52px';
+        }, 200);
+
+        return RSVP.all([setSizePromise, _initOptionsButton(),
             _initShowBaselinePanelButton(),
             _initShowBatchPanelButton(),
             _initMatchLevel(),
@@ -666,7 +672,7 @@
         var batchNameInputElement = _getBatchNameInputElement();
         // The batch element is always "selected".
         _onInputElementsSelected([batchNameInputElement]);
-        batchNameInputElement.addEventListener('change', _onBatchNameChange);
+        batchNameInputElement.addEventListener('keyup', _onBatchNameChange);
         // Load value into the batch name input
         return ConfigurationStore.getBatchName().then(function (batchName) {
             batchNameInputElement.value = batchName || '';
@@ -747,7 +753,7 @@
     var _initPage = function () {
         // Since we want to make sure the batch panel is initialized before the main panel, and both of them
         // after a timeout, so we avoid rendering glitches.
-        var mainPanelInitPromise = ChromeUtils.defer(_initBatchPanel, 150).then(function () {
+        var mainPanelInitPromise = _initBatchPanel().then(function () {
             return _initMainPanel();
         });
         return Applitools.prepareToTest().then(function () {

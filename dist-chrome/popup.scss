@@ -1,11 +1,13 @@
 @import "../base";
 
 $BUTTON_HOVER_FONT_COLOR: #0b7ba2;
+$EXTENSION_SIZE_PLUS_ONE: 53px;
 
 #mainPanel {
   position: relative;
   width: 485px;
-  height: 52px;
+  // We use the "plus one" size so we can call "Set size" from the javascript (see: "_initMainPanel" in popup.js)
+  height: $EXTENSION_SIZE_PLUS_ONE;
   overflow-y: hidden;
   white-space: nowrap;
   @include userSelect(none);
@@ -291,8 +293,8 @@ $BUTTON_HOVER_FONT_COLOR: #0b7ba2;
   display: inline-block;
   background-position-y: 0px;
   position: relative;
-  top: 4px;
-  left: 3px;
+  top: 3px;
+  left: 2px;
 
   //noinspection CssUnknownTarget
   background: url('../images/icon_restart_regular.png') no-repeat;
