@@ -34,7 +34,7 @@
                 if (testParams.batch && testParams.batch.id) {
                     eyes.setBatch(testParams.batch.name, testParams.batch.id);
                 }
-                eyes.setAgentId('eyes.extension.chrome/1.11');
+                eyes.setAgentId('eyes.extension.chrome/1.12');
                 // TODO Daniel - hack, to use layout2 instead of layout as an experiment.
                 eyes._matchLevel = testParams.matchLevel === 'Layout' ? 'Layout2' : testParams.matchLevel;
                 //eyes.setMatchLevel(testParams.matchLevel);

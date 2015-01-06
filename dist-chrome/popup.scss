@@ -5,7 +5,7 @@ $EXTENSION_SIZE_PLUS_ONE: 53px;
 
 #mainPanel {
   position: relative;
-  width: 485px;
+  width: 524px;
   // We use the "plus one" size so we can call "Set size" from the javascript (see: "_initMainPanel" in popup.js)
   height: $EXTENSION_SIZE_PLUS_ONE;
   overflow-y: hidden;
@@ -219,7 +219,27 @@ $EXTENSION_SIZE_PLUS_ONE: 53px;
     }
   }
 
-  #run {
+  #runCrawler {
+    display: inline-block;
+    width: 24px;
+    height: 18px;
+    margin: 18px 0 18px 15px;
+
+    //noinspection CssUnknownTarget
+    background: url("../images/crawling_regular.png") no-repeat 0 -2px;
+
+    &:hover {
+      //noinspection CssUnknownTarget
+      background-image: url("../images/crawling_over.png");
+    }
+
+    &:active {
+      //noinspection CssUnknownTarget
+      background-image: url("../images/crawling_active.png");
+    }
+  }
+
+  #runSingleTest {
     display: inline-block;
     width: 21px;
     height: 17px;
@@ -333,7 +353,7 @@ $EXTENSION_SIZE_PLUS_ONE: 53px;
   border-top: solid 1px #a8a8a8;
 
   #batchName {
-    width: 415px;
+    width: 455px;
   }
 }
 

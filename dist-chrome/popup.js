@@ -6,8 +6,7 @@
 
     //noinspection JSUnresolvedFunction
     var ConfigurationStore = require('./../ConfigurationStore.js'),
-        ChromeUtils = require('./ChromeUtils.js'),
-        GeneralUtils = require('eyes.utils').GeneralUtils,
+        JSUtils = require('./../JSUtils.js'),
         RSVP = require('rsvp');
 
     var Applitools = chrome.extension.getBackgroundPage().Applitools;
@@ -27,7 +26,8 @@
         _SHOW_BATCH_PANEL_ELEMENT_ID = "showBatchPanel",
         _MATCH_LEVEL_ELEMENT_ID = "matchLevel",
         _VIEWPORT_SIZE_ELEMENT_ID = "viewportSize",
-        _RUN_ELEMENT_ID = "run",
+        _RUN_SINGLE_TEST_ELEMENT_ID = "runSingleTest",
+        _RUN_CRAWLER_ELEMENT_ID = "runCrawler",
         _STEP_URL_ELEMENT_ID = "stepUrl",
         _STEP_URL_SELECTION_ELEMENT_ID = "stepUrlSelection",
         _APP_NAME_ELEMENT_ID = "appName",
@@ -370,17 +370,35 @@
     };
 
     /**
-     * Initializes the run button with the required event listeners.
+     * Initializes the "run single test" button with the required event listeners.
      * @return {Promise} A promise which resolves to the run element when the init is done.
      * @private
      */
-    var _initRunButton = function () {
-        var runElement = document.getElementById(_RUN_ELEMENT_ID);
+    var _initRunSingleTestButton = function () {
+        var runElement = document.getElementById(_RUN_SINGLE_TEST_ELEMENT_ID);
         // Run a visual test when button is clicked.
         runElement.addEventListener("click", function () {
             // IMPORTANT All test logic must run in the background page! This is because when the popup is closed,
             // the Javascript in the popup js file stops immediately, it does not wait for operations to complete.
-            Applitools.runTest();
+            //Applitools.runSingleTest();
+            Applitools.runSingleTest();
+        });
+        return RSVP.resolve(runElement);
+    };
+
+    /**
+     * Initializes the "run crawler" button with the required event listeners.
+     * @return {Promise} A promise which resolves to the run element when the init is done.
+     * @private
+     */
+    var _initRunCrawlerButton = function () {
+        var runElement = document.getElementById(_RUN_CRAWLER_ELEMENT_ID);
+        // Run a visual test when button is clicked.
+        runElement.addEventListener("click", function () {
+            // IMPORTANT All test logic must run in the background page! This is because when the popup is closed,
+            // the Javascript in the popup js file stops immediately, it does not wait for operations to complete.
+            //Applitools.runSingleTest();
+            Applitools.crawl();
         });
         return RSVP.resolve(runElement);
     };
@@ -393,7 +411,7 @@
     var _initMainPanel = function () {
         // We perform a "set size" to the already existing value avoid the rendering "glitch" which happens on the
         // first "set size".
-        var setSizePromise = ChromeUtils.defer(function () {
+        var setSizePromise = JSUtils.defer(function () {
             _getMainPanelElement().style.height = '52px';
         }, 200);
 
@@ -402,7 +420,8 @@
             _initShowBatchPanelButton(),
             _initMatchLevel(),
             _initViewportSize(),
-            _initRunButton()]
+            _initRunCrawlerButton(),
+            _initRunSingleTestButton()]
         );
     };
 
@@ -638,7 +657,7 @@
      * @private
      */
     var _resetBatchId = function () {
-        Applitools.currentState.batchId = GeneralUtils.guid();
+        Applitools.resetBatchId();
     };
 
     /**
@@ -756,8 +775,8 @@
         var mainPanelInitPromise = _initBatchPanel().then(function () {
             return _initMainPanel();
         });
-        return Applitools.prepareToTest().then(function () {
-            return RSVP.all([mainPanelInitPromise, _initBaselinePanel(), Applitools.popupOpened()]);
+        return Applitools.popupOpened().then(function () {
+            return RSVP.all([mainPanelInitPromise, _initBaselinePanel()]);
         });
     };
 

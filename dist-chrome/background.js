@@ -6,12 +6,17 @@ window.Applitools = (function () {
 
     //noinspection JSUnresolvedFunction
     var EyesHandler = require('./../EyesHandler.js'),
+        ChromeUtils = require('./ChromeUtils.js'),
+        GeneralUtils = require('eyes.utils').GeneralUtils,
+        JSUtils = require('./../JSUtils.js'),
         ConfigurationStore = require('./../ConfigurationStore.js'),
         WindowHandler = require('./WindowHandler.js'),
         RSVP = require('rsvp');
 
     var _DEFAULT_BROWSER_ACTION_TOOLTIP = "Applitools Eyes. No tests are currently running.";
     var _MAX_LOGS_COUNT = 100;
+    var _MAX_PARALLEL_CRAWLER_TABS = 5;
+    var _TAB_LOAD_TIME_MS = 10000;
     var _APPLITOOLS_LOGIN_URL = 'https://applitools.com/login/';
 
     chrome.browserAction.setTitle({title: _DEFAULT_BROWSER_ACTION_TOOLTIP});
@@ -24,19 +29,29 @@ window.Applitools = (function () {
     // Add a listener to the run-test hotkey.
     chrome.commands.onCommand.addListener(function (command) {
         if (command === 'run-test') {
-            return Applitools_.prepareToTest().then(function () {
-                return Applitools_.runTest();
+            return Applitools_.verifyApiKey().then(function (apiKey) {
+                if (apiKey !== null) {
+                    return Applitools_.runSingleTest();
+                }
             });
         }
     });
 
     Applitools_.currentState = {
+        screenshotTakenMutex: {},
         batchId: undefined,
-        tabToTest: undefined,
         runningTestsCount: 0,
         logs: [],
         newErrorsExist: false,  // errors were encountered since the last time the extension menu was opened
         unreadErrorsExist: false // errors were encountered and not read
+    };
+
+    /**
+     * Sets a new batch ID in the background script state.
+     * @private
+     */
+    Applitools_.resetBatchId = function () {
+        Applitools_.currentState.batchId = GeneralUtils.guid();
     };
 
     /**
@@ -108,45 +123,6 @@ window.Applitools = (function () {
     };
 
     /**
-     * @return {Promise} A promise which resolves to the current tab.
-     * @private
-     */
-    var getCurrentTab = function () {
-        var deferred = RSVP.defer();
-        chrome.tabs.query({currentWindow: true, active: true}, function (tabsList) {
-            // Since there's only one active tab in the current window,
-            deferred.resolve(tabsList[0]);
-        });
-        return deferred.promise;
-    };
-
-    /**
-     * Verifies that an API key is available, and saves the current tab.
-     * @return {Promise} A promise which resolves when preparation is finished.
-     */
-    Applitools_.prepareToTest = function () {
-        return getCurrentTab().then(function (currentTab) {
-            // Making sure that API key is available.
-            return ConfigurationStore.getApiKey().then(function (apiKey) {
-                if (!apiKey) {
-                    var deferred = RSVP.defer();
-                    chrome.tabs.create({windowId: currentTab.windowId, url: _APPLITOOLS_LOGIN_URL, active: true},
-                        function () {
-                            Applitools_.updateBrowserActionBadge(true,
-                                "You must be signed in to Applitools in order to use this extension.").
-                                then(function () {
-                                    deferred.resolve();
-                                });
-                        });
-                    return deferred.promise;
-                }
-                Applitools_.currentState.tabToTest = currentTab;
-                return RSVP.resolve();
-            });
-        });
-    };
-
-    /**
      * Extracts the relevant parts of a given URL.
      * @param stepUrl The url from which to extract parameters.
      * @return {object|null} An object containing the relevant parameters, or null if the URL is not in the correct
@@ -165,13 +141,40 @@ window.Applitools = (function () {
     };
 
     /**
+     * Verifies that an api key exists, and opens the login tab if it doesn't.
+     * @return {Promise} A promise which resolves to the API key, or to undefined if there's no api key.
+     */
+    Applitools_.verifyApiKey = function () {
+        return ConfigurationStore.getApiKey().then(function (apiKey) {
+            if (!apiKey) {
+                var deferred = RSVP.defer();
+                ChromeUtils.getCurrentTab().then(function (currentTab) {
+                    chrome.tabs.create({windowId: currentTab.windowId, url: _APPLITOOLS_LOGIN_URL, active: true},
+                        function () {
+                            Applitools_.updateBrowserActionBadge(true,
+                                "You must be signed in to Applitools in order to use this extension.").
+                                then(function () {
+                                    deferred.resolve(null);
+                                });
+                        });
+                });
+                return deferred.promise;
+            }
+            return apiKey;
+        });
+    };
+
+    /**
      * Notifies the background script that the popup page had been opened.
      * @return {Promise} A promise which resolves when finished the required handling.
      */
     Applitools_.popupOpened = function () {
         // If there was an error badge, we can stop displaying it.
         Applitools_.currentState.newErrorsExist = false;
-        return Applitools_.updateBrowserActionBadge(false, undefined);
+        return Applitools_.updateBrowserActionBadge(false, undefined)
+            .then(function () {
+                return Applitools_.verifyApiKey();
+            });
     };
 
     /**
@@ -199,9 +202,7 @@ window.Applitools = (function () {
         errorMessage = Applitools_._buildLogMessage(appName, testName, 'Error: ' + errorMessage);
         return Applitools_._log(errorMessage).then(function () {
             Applitools_.currentState.newErrorsExist = Applitools_.currentState.unreadErrorsExist = true;
-            return Applitools_.updateBrowserActionBadge(true, undefined).then(function () {
-                return Applitools_._testEnded(appName, testName);
-            });
+            return Applitools_.updateBrowserActionBadge(true, undefined);
         });
     };
 
@@ -249,6 +250,7 @@ window.Applitools = (function () {
      * @param {string} domain The domain of the server from which to extract the session information.
      * @param {string} sessionId The ID of the session which info we'd like to get.
      * @return {Promise} A promise which resolves to the JSON parsed session info.
+     * @private
      */
     Applitools_._getSessionInfo = function (domain, sessionId) {
         var deferred = RSVP.defer();
@@ -277,31 +279,74 @@ window.Applitools = (function () {
     };
 
     /**
+     * Returns the default test name given a URL.
+     * @param {string} url The url from which to extract the default test name.
+     * @return {string} The default test name.
+     * @private
+     */
+    Applitools_._getDefaultTestName = function (url) {
+        var pathRegexResult = /https?:\/\/[\w\.\-]+?(\/\S*)(?:\?|$)/.exec(url);
+        var testName = "Homepage"; // default
+        if (pathRegexResult && pathRegexResult[1] !== '/') {
+            testName = pathRegexResult[1];
+        }
+        return testName;
+    };
+
+    /**
+     * Clones a test parameters object.
+     * @param {Object} testParams The tests parameters object to clone.
+     * @return {Object} A cloned test parameters object.
+     * @private
+     */
+    Applitools_._cloneTestParams = function (testParams) {
+        return { appName: testParams.appName,
+                testName: testParams.testName,
+                branchName: testParams.branchName,
+                parentBranchName: testParams.parentBranchName,
+                os: testParams.os,
+                hostingApp: testParams.hostingApp,
+                inferred: testParams.inferred,
+                matchLevel: testParams.matchLevel,
+                viewportSize: { width: testParams.viewportSize.width,
+                                height: testParams.viewportSize.height
+                              }
+                };
+    };
+
+    /**
      * Gets the current test parameters, based on the user's selection of baseline.
-     * @param {String} url The current URL (i.e., the URL of the page being tested).
-     * @param {String} selectionId The user's baseline selection as would be stored by the ConfigurationStore.
+     * @param {String} currentUrl The URL of the page the user is currently in.
+     * @param {boolean} forceDefaultTestName Whether the test name should be the default value even if the user
+     *                                      supplied a test name/step url (e.g, for tests crawled).
      * @return {Promise} A promise which resolves to {testName: , appName: , viewportSize: {width: , height: }}
      * @private
      */
-    Applitools_._getTestParameters = function (url, selectionId) {
-        var matchLevel;
+    Applitools_._getTestParameters = function (currentUrl, forceDefaultTestName) {
+        var matchLevel, baselineSelectionId;
+
         return ConfigurationStore.getMatchLevel().then(function (matchLevel_) {
             matchLevel = matchLevel_;
+            return ConfigurationStore.getBaselineSelection();
+        }).then(function (baselineSelectionId_) {
+            baselineSelectionId = baselineSelectionId_;
         }).then(function () {
             var testParamsPromise;
-            if (selectionId === 'stepUrlSelection') {
-                testParamsPromise = ConfigurationStore.getBaselineStepUrl().then(function (stepUrl) {
-                    var stepUrlParams = Applitools_.extractStepUrlParameters(stepUrl);
-                    if (!stepUrlParams) {
-                        return RSVP.reject(new Error('Invalid step URL: ' + stepUrl));
+            var defaultTestName = Applitools_._getDefaultTestName(currentUrl);
+
+            if (baselineSelectionId === 'stepUrlSelection') {
+                testParamsPromise = ConfigurationStore.getBaselineStepUrl().then(function (baselineStepUrl) {
+                    var baselineStepUrlParams = Applitools_.extractStepUrlParameters(baselineStepUrl);
+                    if (!baselineStepUrlParams) {
+                        return RSVP.reject(new Error('Invalid baseline step URL: ' + baselineStepUrl));
                     }
-                    var domain = stepUrlParams.domain;
-                    var sessionId = stepUrlParams.sessionId;
+                    var domain = baselineStepUrlParams.domain;
+                    var sessionId = baselineStepUrlParams.sessionId;
                     return Applitools_._getSessionInfo(domain, sessionId).then(function (sessionInfo) {
                         var appName = sessionInfo.startInfo.appIdOrName;
-                        var testName = sessionInfo.startInfo.scenarioIdOrName;
+                        var testName = forceDefaultTestName ? defaultTestName : sessionInfo.startInfo.scenarioIdOrName;
                         var branchName = sessionInfo.startInfo.branchName;
-                        var parentBranchNAme = sessionInfo.startInfo.parentBranchName;
+                        var parentBranchName = sessionInfo.startInfo.parentBranchName;
                         var os = sessionInfo.startInfo.environment.os;
                         var hostingApp = sessionInfo.startInfo.environment.hostingApp;
                         var inferred = sessionInfo.startInfo.environment.inferred;
@@ -309,23 +354,20 @@ window.Applitools = (function () {
                         viewportSize.width = sessionInfo.startInfo.environment.displaySize.width;
                         viewportSize.height = sessionInfo.startInfo.environment.displaySize.height;
                         var testParams = {appName: appName, testName: testName, branchName: branchName,
-                            parentBranchName: parentBranchNAme, os: os, hostingApp: hostingApp, inferred: inferred,
+                            parentBranchName: parentBranchName, os: os, hostingApp: hostingApp, inferred: inferred,
                             viewportSize: viewportSize, matchLevel: matchLevel};
                         return RSVP.resolve(testParams);
                     });
                 });
             } else {
-                var domainRegexResult = /https?:\/\/([\w\.\-]+)?\//.exec(url);
-                var defaultAppName = domainRegexResult ? domainRegexResult[1] : url;
-                var pathRegexResult = /https?:\/\/[\w\.\-]+?(\/\S*)(?:\?|$)/.exec(url);
-                var defaultTestName = pathRegexResult ? pathRegexResult[1] : '/';
-
+                var domainRegexResult = /https?:\/\/([\w\.\-]+)?\//.exec(currentUrl);
+                var defaultAppName = domainRegexResult ? domainRegexResult[1] : currentUrl;
                 // If the user selected specific app and test names, we use them.
-                if (selectionId === 'userValuesSelection') {
+                if (baselineSelectionId === 'userValuesSelection') {
                     testParamsPromise = ConfigurationStore.getBaselineAppName().then(function (appName) {
                         return ConfigurationStore.getBaselineTestName().then(function (testName) {
                             appName = appName || defaultAppName;
-                            testName = testName || defaultTestName;
+                            testName = forceDefaultTestName ? defaultTestName : (testName || defaultTestName);
                             return RSVP.resolve({appName: appName, testName: testName});
                         });
                     });
@@ -351,12 +393,14 @@ window.Applitools = (function () {
     /**
      * Restores the tab to it's original window (if there was such a window), otherwise returns the tab to its
      * original size.
-     * @param {Tab} tab The tab we would like to restore.
+     * @param {chrome.tabs.Tab} tab The tab we would like to restore.
      * @param {boolean} newWindowCreated Whether or not a new window was created for resizing the tab.
-     * @param {Window} resizedWindow The Window instance of the which contains the tab after it was resized.
-     * @param {Window} originalWindow The Window instance of the window the tab was taken from, or {@code undefined} if
-     *                                  the tab wasn't moved the a new window.
-     * @param {Number} originalTabIndex The index of the tab in the original window, or {@code undefined} if
+     * @param {chrome.windows.Window} resizedWindow The Window instance of the which contains the tab after it was
+     *                                              resized.
+     * @param {chrome.windows.Window|undefined} originalWindow The Window instance of the window the tab was taken from,
+     *                                                          or {@code undefined} if the tab wasn't moved the a new
+     *                                                          window.
+     * @param {Number|undefined} originalTabIndex The index of the tab in the original window, or {@code undefined} if
      *                                  {@code originalWindow} is {@code undefined}.
      * @param {Object} originalSize The original size of {@code tab}. Required if {@code originalWindow} is
      *                              {@code undefined}.
@@ -381,174 +425,392 @@ window.Applitools = (function () {
     };
 
     /**
-     * Runs a test for a given tab.
-     * @return {Promise} A promise which resolves when the test ends (or rejects on error).
+     * Prepares the window for running a test (e.g., move the current tab to a new window if needed).
+     * @param {chrome.tabs.Tab} currentTab The currently active user tab.
+     * @param {Object} requiredViewportSize required width/height of the viewport.
+     * @return {Promise} A promise which resolves once we finish preparing the window, or rejects if we failed to set
+     *                  the required size.
+     * @private
      */
-    Applitools_.runTest = function () {
+    Applitools_._prepareWindowForTests = function (currentTab, requiredViewportSize) {
         var deferred = RSVP.defer();
 
-        Applitools_._testStarted();
+        var originalTabIndex = currentTab.index;
+        chrome.windows.get(currentTab.windowId, {populate: true}, function (originalWindow) {
+            var originalTabsCount = originalWindow.tabs.length;
+            var originalWindowWidth = originalWindow.width;
+            var originalWindowHeight = originalWindow.height;
 
-        var tabToTest = Applitools_.currentState.tabToTest;
-        //properties of tab object
-        var title = tabToTest.title;
-        var url = tabToTest.url;
-        var originalWindowId = tabToTest.windowId;
-        var originalTabIndex = tabToTest.index;
-
-        ConfigurationStore.getTakeFullPageScreenshot().then(function (forceFullPageScreenshot) {
-
-            chrome.windows.get(originalWindowId, {populate: true}, function (originalWindow) {
-                var originalTabsCount = originalWindow.tabs.length;
-                var originalWindowWidth = originalWindow.width;
-                var originalWindowHeight = originalWindow.height;
-
-                var testParams, batchName, shouldUseBatch;
-                ConfigurationStore.getBaselineSelection().then(function (selectionId) {
-                    Applitools_._getTestParameters(url, selectionId).then(function (testParams_) {
-                        testParams = testParams_;
-                        return RSVP.resolve();
-                    }).then(function () {
-                        return ConfigurationStore.getBatchName().then(function (batchName_) {
-                            batchName = batchName_;
+            var updatedWindowPromise;
+            var isNewWindowCreated;
+            if (originalTabsCount > 1) {
+                // The window contains multiple tabs, so we'll move the current tab to a new window for
+                // resizing.
+                updatedWindowPromise = WindowHandler.moveTabToNewWindow(currentTab, requiredViewportSize);
+                isNewWindowCreated = true;
+            } else {
+                // The window only contains the current tab, so we'll just resize the current window.
+                updatedWindowPromise = RSVP.resolve(originalWindow);
+                isNewWindowCreated = false;
+            }
+            // Move the current tab to a new window, so not to resize all the user's tabs
+            updatedWindowPromise.then(function (testWindow) {
+                // Since the new window only includes a single tab.
+                var testTab = testWindow.tabs[0];
+                WindowHandler.setViewportSize(testWindow, testTab, requiredViewportSize).then(function (resizedWindow) {
+                    var resizedTab = resizedWindow.tabs[0];
+                    var preparedWindowData = {
+                        updated: {tab: resizedTab, window: testWindow, isNewWindowCreated: isNewWindowCreated},
+                        original: {window: originalWindow, tabIndex: originalTabIndex,
+                            windowSize: {width: originalWindowWidth, height: originalWindowHeight}}
+                    };
+                    // Done!
+                    deferred.resolve(preparedWindowData);
+                }).catch(function (invalidSizeWindow) {
+                    // There was a problem resizing the window, so return the tab to it's original status.
+                    // The window contains a single tab (the one we wanted to resize).
+                    var resizedTab = invalidSizeWindow.tabs[0];
+                    var restoredWindowPromise = Applitools_._restoreTab(resizedTab, isNewWindowCreated,
+                        invalidSizeWindow, originalWindow, originalTabIndex, {
+                            width: originalWindowWidth,
+                            height: originalWindowHeight
                         });
-                    }).then(function () {
-                        return ConfigurationStore.getShouldUseBatch().then(function (shouldUseBatch_) {
-                            shouldUseBatch = shouldUseBatch_;
-                        });
-                    }).then(function () {
-                        var testParamsLogMessage = Applitools_._buildLogMessage(testParams.appName, testParams.testName,
-                            "Got tests parameters");
-                        Applitools_._log(testParamsLogMessage);
-
-                        if (shouldUseBatch && batchName) {
-                            testParams.batch = {
-                                name: batchName,
-                                id: Applitools_.currentState.batchId
-                            };
-                        }
-
-                        var requiredViewportSize = testParams.viewportSize;
-                        var updatedWindowPromise;
-                        var isNewWindowCreated;
-                        if (originalTabsCount > 1) {
-                            // The window contains multiple tabs, so we'll move the current tab to a new window for
-                            // resizing.
-                            updatedWindowPromise = WindowHandler.moveTabToNewWindow(tabToTest, requiredViewportSize);
-                            isNewWindowCreated = true;
-                        } else {
-                            // The window only contains the current tab, so we'll just resize the current window.
-                            updatedWindowPromise = RSVP.resolve(originalWindow);
-                            isNewWindowCreated = false;
-                        }
-                        // Move the current tab to a new window, so not to resize all the user's tabs
-                        updatedWindowPromise.then(function (newWindow) {
-                            // Since the new window only includes a single tab.
-                            var movedTab = newWindow.tabs[0];
-                            WindowHandler.setViewportSize(newWindow, movedTab, requiredViewportSize).then(function (resizedWindow) {
-                                var resizedTab = resizedWindow.tabs[0];
-
-                                // We wait a bit before actually taking the screenshot to give the page time to redraw.
-                                setTimeout(function () {
-                                    ConfigurationStore.getRemoveScrollBars().then(function (removeScrollBars) {
-                                        // Get a screenshot of the current tab as PNG.
-                                        WindowHandler.getScreenshot(resizedTab, forceFullPageScreenshot, removeScrollBars, requiredViewportSize).then(function (image) {
-                                            var restoredWindowPromise;
-                                            var newWindowCreated = originalTabsCount > 1;
-                                            restoredWindowPromise = Applitools_._restoreTab(resizedTab, newWindowCreated,
-                                                resizedWindow, originalWindow, originalTabIndex, {
-                                                    width: originalWindowWidth,
-                                                    height: originalWindowHeight
-                                                });
-                                            restoredWindowPromise.then(function () {
-                                                // Run the test
-                                                EyesHandler.testImage(testParams, image, title)
-                                                    .then(function (testResults) {
-                                                        ConfigurationStore.getNewTabForResults()
-                                                            .then(function (shouldOpen) {
-                                                                if (shouldOpen) {
-                                                                    var baselineId = JSON.stringify(testParams),
-                                                                        tabId = _resultTabs[baselineId];
-
-                                                                    if (tabId) {
-                                                                        // This baseline already had a result tab. If it's open
-                                                                        // we will reuse it
-                                                                        chrome.tabs.update(tabId, {url: testResults.url},
-                                                                            function (tab) {
-                                                                                if (tab) {
-                                                                                    deferred.resolve(testResults);
-                                                                                    Applitools_._testEnded(testParams.appName,
-                                                                                        testParams.testName);
-                                                                                } else {
-                                                                                    chrome.tabs.create({
-                                                                                        windowId: originalWindowId,
-                                                                                        url: testResults.url,
-                                                                                        active: false
-                                                                                    }, function (tab) {
-                                                                                        if (tab) {
-                                                                                            _resultTabs[baselineId] = tab.id;
-                                                                                        }
-                                                                                        deferred.resolve(testResults);
-                                                                                        Applitools_._testEnded(testParams.appName,
-                                                                                            testParams.testName);
-                                                                                    });
-                                                                                }
-                                                                            });
-                                                                    } else {
-                                                                        chrome.tabs.create({
-                                                                            windowId: originalWindowId,
-                                                                            url: testResults.url,
-                                                                            active: false
-                                                                        }, function (tab) {
-                                                                            if (tab) {
-                                                                                _resultTabs[baselineId] = tab.id;
-                                                                            }
-                                                                            deferred.resolve(testResults);
-                                                                            Applitools_._testEnded(testParams.appName,
-                                                                                testParams.testName);
-                                                                        });
-                                                                    }
-                                                                } else {
-                                                                    deferred.resolve(testResults);
-                                                                    Applitools_._testEnded(testParams.appName,
-                                                                        testParams.testName);
-                                                                }
-                                                            });
-                                                    }).catch(function () {
-                                                        deferred.reject();
-                                                        Applitools_._onError("An error occurred while running the test.",
-                                                            testParams.appName, testParams.testName);
-                                                    });
-                                            });
-                                        }); // Applitools_.getScreenshot
-                                    });
-                                }, 1000);
-                            }).catch(function (invalidSizeWindow) { //Handling resize failure.
-                                // The window will only contain a single tab (the one we want).
-                                var resizedTab = invalidSizeWindow.tabs[0];
-                                var restoredWindowPromise = Applitools_._restoreTab(resizedTab, isNewWindowCreated,
-                                    invalidSizeWindow, originalWindow, originalTabIndex, {
-                                        width: originalWindowWidth,
-                                        height: originalWindowHeight
-                                    });
-
-                                restoredWindowPromise.then(function () {
-                                    deferred.reject();
-                                    Applitools_._onError('Failed to set viewport size ' + requiredViewportSize.width
-                                        + 'x' + requiredViewportSize.height + ' (got ' + resizedTab.width
-                                        + 'x' + resizedTab.height + ' instead)',
-                                        testParams.appName, testParams.testName);
-                                });
-                            });
-                        });
-                    }).catch(function (err) { // Handling test parameters extraction failure.
-                        deferred.reject(err);
-                        Applitools_._onError('Failed to extract test parameters: ' + err, undefined, undefined);
+                    restoredWindowPromise.then(function () {
+                        deferred.reject('Failed to set viewport size ' + requiredViewportSize.width
+                            + 'x' + requiredViewportSize.height + ' (got ' + resizedTab.width
+                            + 'x' + resizedTab.height + ' instead)');
                     });
-                }); // Get baseline selection
+                });
             });
         });
+
         return deferred.promise;
+    };
+
+    /**
+     * Runs a test for a given tab.
+     * @param taskScheduler A task scheduler for sequencing the screenshot taking.
+     * @param {chrome.tabs.Tab} tabToTest The tab to run the test on.
+     * @param testParams The parameters of the test as returned by {@code _getTestParameters}.
+     * @return {Object} An object containing 2 promises: {@code screenshotTaken} and {@code testFinished}.
+     */
+    Applitools_._runTest = function (taskScheduler, tabToTest, testParams) {
+        var screenshotTakenDeferred = RSVP.defer();
+        var testFinishedDeferred = RSVP.defer();
+        var forceFullPageScreenshot, batchName, shouldUseBatch;
+
+        var title = tabToTest.title;
+
+        Applitools_._testStarted().then(function () {
+            // Checking whether or not we need a full page screenshot, as well as setting batch if necessary.
+            return ConfigurationStore.getTakeFullPageScreenshot().then(function (forceFullPageScreenshot_) {
+                forceFullPageScreenshot = forceFullPageScreenshot_;
+            });
+        }).then(function () {
+            return ConfigurationStore.getBatchName().then(function (batchName_) {
+                batchName = batchName_;
+            });
+        }).then(function () {
+            return ConfigurationStore.getShouldUseBatch().then(function (shouldUseBatch_) {
+                shouldUseBatch = shouldUseBatch_;
+            });
+        }).then(function () {
+            if (shouldUseBatch && batchName) {
+                testParams.batch = {
+                    name: batchName,
+                    id: Applitools_.currentState.batchId
+                };
+            }
+        }).then(function () {
+            return ConfigurationStore.getRemoveScrollBars();
+        }).then(function (removeScrollBars) {
+            // Get a screenshot of the given tab as PNG. We must run this using the task scheduler,
+            // since the screenshot must be taken when the tab is active.
+            var screenshotTask = new JSUtils.ScheduledTask(WindowHandler.getScreenshot,
+                [tabToTest, forceFullPageScreenshot, removeScrollBars, testParams.viewportSize]);
+            return taskScheduler.addTask(screenshotTask);
+        }).then(function (image) {
+            // We got the image, so resolve the relevant deferred
+            screenshotTakenDeferred.resolve();
+
+            // Run the test
+            EyesHandler.testImage(testParams, image, title)
+                .then(function (testResults) {
+                    testFinishedDeferred.resolve(testResults);
+                }).catch(function () {
+                    testFinishedDeferred.reject();
+                }).finally(function () {
+                    Applitools_._testEnded(testParams.appName, testParams.testName);
+                });
+        }).catch(function (err) {
+            screenshotTakenDeferred.reject();
+            testFinishedDeferred.reject(err);
+            Applitools_._testEnded(testParams.appName, testParams.testName);
+        });
+
+        return {screenshotTaken: screenshotTakenDeferred.promise, testFinished: testFinishedDeferred.promise};
+    };
+
+    /**
+     * Shows the test's results if necessary (might use an existing tab).
+     * @param {Object} testResults The test's results as returned by {@code eyes.close}.
+     * @param {Object} testParams The test's parameters as returned by {@code _getTestParameters}.
+     * @param {chrome.windows.Window} testWindow The window to which the tested tab belongs to.
+     * @return {Promise} A promise which resolves when the test results presentation is ready.
+     * @private
+     */
+    Applitools_._handleTestResults = function (testResults, testParams, testWindow) {
+        var deferred = RSVP.defer();
+
+        ConfigurationStore.getNewTabForResults()
+            .then(function (shouldOpen) {
+                if (shouldOpen) {
+                    var baselineId = JSON.stringify(testParams),
+                        tabId = _resultTabs[baselineId];
+
+                    // FIXME Daniel - replace chrome.tabs.create with ChromeUtils.createTab
+
+                    if (tabId) {
+                        // This baseline already had a result tab. If it's open
+                        // we will reuse it
+                        chrome.tabs.update(tabId, {url: testResults.url},
+                            function (tab) {
+                                if (tab) {
+                                    deferred.resolve(tab);
+                                } else {
+                                    // If the user closed the tab
+                                    chrome.tabs.create({
+                                        windowId: testWindow.id,
+                                        url: testResults.url,
+                                        active: false
+                                    }, function (tab) {
+                                        if (tab) {
+                                            _resultTabs[baselineId] = tab.id;
+                                        }
+                                        deferred.resolve(tab);
+                                    });
+                                }
+                            });
+                    } else {
+                        // If there was no previous tab open for the results of the test.
+                        chrome.tabs.create({
+                            windowId: testWindow.id,
+                            url: testResults.url,
+                            active: false
+                        }, function (tab) {
+                            if (tab) {
+                                _resultTabs[baselineId] = tab.id;
+                            }
+                            deferred.resolve(tab);
+                        });
+                    }
+                } else {
+                    // No need to open a tab for showing the results.
+                    deferred.resolve(null);
+                }
+            });
+        return deferred.promise;
+    };
+
+    /**
+     * Tests the current tab.
+     * @return {Promise} A promise which resolves to the test's results, or rejects if an error occurred.
+     */
+    Applitools_.runSingleTest = function () {
+        var preparedWindowData, currentTab, testParams, appName, testName;
+        return ChromeUtils.getCurrentTab().then(function (currentTab_) {
+            currentTab = currentTab_;
+        }).then(function () {
+            return Applitools_._getTestParameters(currentTab.url, false);
+        }).then(function (testParams_) {
+            testParams = testParams_;
+            appName = testParams.appName;
+            testName = testParams.testName;
+            var testParamsLogMessage = Applitools_._buildLogMessage(appName, testName, "Got tests parameters");
+            Applitools_._log(testParamsLogMessage);
+        }, function (err) {
+            return Applitools_._onError('Failed to extract test parameters: ' + err, undefined, undefined)
+                .then(function () {
+                    return RSVP.reject();
+                });
+        }).then(function () {
+            return Applitools_._prepareWindowForTests(currentTab, testParams.viewportSize);
+        }).then(function (preparedWindowData_) {
+            preparedWindowData = preparedWindowData_;
+            // Give the resized window time to stabilize.
+            JSUtils.sleep(1000);
+        }).then(function () {
+            return Applitools_._runTest(preparedWindowData.updated.tab, testParams);
+        }).then(function (testPromises) {
+            var tabRestoredPromise = testPromises.screenshotTaken.then(function () {
+                return Applitools_._restoreTab(preparedWindowData.updated.tab,
+                    preparedWindowData.updated.isNewWindowCreated,
+                    preparedWindowData.updated.window,
+                    preparedWindowData.original.window,
+                    preparedWindowData.original.tabIndex,
+                    preparedWindowData.original.windowSize);
+            });
+            return RSVP.all([tabRestoredPromise, testPromises.testFinished]);
+        }).then(function (results) {
+            var testResults = results[1];
+            return Applitools_._handleTestResults(testResults, testParams, preparedWindowData.original.window);
+        }).catch(function () {
+            return Applitools_._onError('Failed to run test', appName, testName);
+        });
+    };
+
+    /**
+     * Gets the URLs to crawl from the given tab.
+     * @param {chrome.tabs.Tab} tab The current tab, from which we will extract the links to crawl.
+     * @return {Promise} A promise which resolves to the links to crawl, or rejects if failed to get the links.
+     * @private
+     */
+    Applitools_._getUrlsToCrawl = function (tab) {
+        var tabUrl = tab.url;
+
+        // Get the sitemap's url.
+        var domainRegexResult = /(https?:\/\/[\w.\-]+)(?:\/|\?|$)/.exec(tabUrl);
+        if (!domainRegexResult || domainRegexResult.length < 2 || !domainRegexResult[1]) {
+            return RSVP.reject("Failed to extract sitemap URL from current URL: " + tabUrl);
+        }
+
+        var sitemapUrl = domainRegexResult[1] + "/sitemap.xml";
+
+        // Get the sitemap actually.
+        return JSUtils.ajaxGet(sitemapUrl, 5000, true).then(function (sitemap) {
+            if (!sitemap) {
+                return RSVP.reject("Failed to extract sitemap from: " + sitemapUrl);
+            }
+            var urlsToCrawl = [];
+            var urlElements = sitemap.getElementsByTagName("loc");
+            //noinspection JSLint
+            for (var i = 0; i < urlElements.length; ++i) {
+                var currentLink = urlElements[i].innerHTML;
+                if (currentLink) {
+                    urlsToCrawl.push(currentLink)
+                }
+            }
+
+            return RSVP.resolve(urlsToCrawl);
+        });
+    };
+
+    //noinspection JSValidateJSDoc
+    /**
+     * Runs a test for a crawled link.
+     * @param taskScheduler A task scheduler for sequencing the screenshot taking.
+     * @param {chrome.tabs.Tab|undefined} tab The tab in which to run the test.
+     * @param {Array} urlsToCrawl A list of urls to crawl.
+     * @param {Object} baseTestParameters The test parameters (as returned from a call to {@code _getTestParameters})
+     *                                      from which the current test parameters can be deduced.
+     * @param {deferred} tabDoneDeferred A deferred which will be resolved when there are no more tests to run in the
+     *                                      given tab.
+     * @return {Promise} A promise which resolves to an object containing the tab and the test promises as returned
+     *                   by {@code _runTest}.
+     * @private
+     */
+    Applitools_._runCrawledTest = function (taskScheduler, tab, urlsToCrawl, baseTestParameters, tabDoneDeferred) {
+        var url = urlsToCrawl.shift();
+        // If there are no more URLs to crawl, we can close the tab.
+        if (url === undefined) {
+            return ChromeUtils.removeTab(tab.id).then(function () {
+                tabDoneDeferred.resolve();
+            });
+        }
+        // Get test parameters with the correct test name
+        var testParams = Applitools_._cloneTestParams(baseTestParameters);
+        testParams.testName = Applitools_._getDefaultTestName(url);
+
+        return ChromeUtils.loadUrl(tab.id, url).then(function () {
+            // Give the page time to load.
+            return JSUtils.sleep(_TAB_LOAD_TIME_MS);
+        }).then(function () {
+            var testPromises = Applitools_._runTest(taskScheduler, tab, testParams);
+            testPromises.screenshotTaken.then(function () {
+                // Recursive, sort of.
+                Applitools_._runCrawledTest(taskScheduler, tab, urlsToCrawl, baseTestParameters, tabDoneDeferred);
+            });
+            return {tab: tab, testPromises: testPromises};
+        });
+    };
+
+    /**
+     * Tests the current tab and crawls the website, testing each crawled page.
+     * @return {Promise} A promise which resolves once all the tests are finished, or rejects if there was a failure.
+     */
+    Applitools_.crawl = function () {
+        var originalTab, testParams, appName, testName, preparedWindowData;
+        var currentTabScreenshotPromise, currentTabFinishedTestPromise;
+        var urlsToCrawl;
+        var taskRunner = new JSUtils.SequentialTaskRunner();
+
+        // Every crawl is a new batch
+        Applitools_.resetBatchId();
+
+        // We start with testing the current tab.
+        return ChromeUtils.getCurrentTab().then(function (currentTab_) {
+            originalTab = currentTab_;
+            return Applitools_._getTestParameters(originalTab.url, false);
+        }).then(function (testParams_) {
+            testParams = testParams_;
+            appName = testParams.appName;
+            testName = testParams.testName;
+            var testParamsLogMessage = Applitools_._buildLogMessage(appName, testName, "Got tests parameters");
+            Applitools_._log(testParamsLogMessage);
+        }, function (err) {
+            return Applitools_._onError('Failed to extract test parameters: ' + err, undefined, undefined)
+                .then(function () {
+                    return RSVP.reject();
+                });
+        }).then(function () {
+            return Applitools_._prepareWindowForTests(originalTab, testParams.viewportSize);
+        }).then(function (preparedWindowData_) {
+            preparedWindowData = preparedWindowData_;
+            // Give the resized window time to stabilize.
+            return JSUtils.sleep(1000);
+        }).then(function () {
+            return Applitools_._runTest(taskRunner, preparedWindowData.updated.tab, testParams);
+        }).then(function (testPromises) {
+            currentTabScreenshotPromise = testPromises.screenshotTaken;
+            currentTabFinishedTestPromise = testPromises.testFinished;
+        }).then(function () { //** Crawling
+            return Applitools_._getUrlsToCrawl(preparedWindowData.updated.tab);
+        }).then(function (urlsToCrawl_) {
+            urlsToCrawl = urlsToCrawl_;
+            // We want to go over the pages in a sorted order.
+            urlsToCrawl.sort();
+            for (var i = 0; i < urlsToCrawl.length; ++i) {
+                // Remove duplicate URLs (e.g., if the one of the crawled URLs is the same as the original URL).
+                if (originalTab.url === urlsToCrawl[i]
+                    || (i > 0 && urlsToCrawl[i] === urlsToCrawl[i-1])) {
+                    urlsToCrawl.splice(i, 1);
+                }
+            }
+        }).then(function () {
+            // We use an internal function to create a context for every loop iteration below.
+            function _startTest(windowId, urlsToCrawl_, testParams_, tabDoneDeferred_) {
+                ChromeUtils.createTab(undefined, windowId, false).then(function (tab) {
+                    Applitools_._runCrawledTest(taskRunner, tab, urlsToCrawl_, testParams_, tabDoneDeferred_);
+                });
+            }
+
+            var tabsDonePromises = [];
+            var tabsToOpen = Math.min(urlsToCrawl.length, _MAX_PARALLEL_CRAWLER_TABS);
+            for (var i = 0; i < tabsToOpen; ++i) {
+                var tabDoneDeferred = RSVP.defer();
+                tabsDonePromises.push(tabDoneDeferred.promise);
+                _startTest(preparedWindowData.updated.window.id, urlsToCrawl, testParams, tabDoneDeferred);
+            }
+
+            return RSVP.all(tabsDonePromises);
+        }).then(function () {
+            return Applitools_._restoreTab(preparedWindowData.updated.tab,
+                preparedWindowData.updated.isNewWindowCreated,
+                preparedWindowData.updated.window,
+                preparedWindowData.original.window,
+                preparedWindowData.original.tabIndex,
+                preparedWindowData.original.windowSize);
+        });
     };
 
     return Applitools_;

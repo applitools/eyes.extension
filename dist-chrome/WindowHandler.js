@@ -6,7 +6,8 @@
 
     //noinspection JSUnresolvedFunction
     var RSVP = require('rsvp'),
-        ChromeUtils = require('./ChromeUtils');
+        ChromeUtils = require('./ChromeUtils'),
+        JSUtils = require('./../JSUtils');
 
     var EyesUtils = require('eyes.utils'),
         GeometryUtils = EyesUtils.GeometryUtils;
@@ -321,7 +322,7 @@
         var deferred = RSVP.defer();
         chrome.tabs.setZoom(tabId, zoomFactor, function () {
             if (stabilizationTimeMs) {
-                ChromeUtils.sleep(stabilizationTimeMs).then(function () {
+                JSUtils.sleep(stabilizationTimeMs).then(function () {
                     deferred.resolve();
                 });
                 return;
@@ -449,7 +450,7 @@
             // Try to scroll to the required position, and give it time to stabilize.
             //noinspection JSUnresolvedVariable
             return WindowHandler.translateTo(tab.id, position.left, position.top).then(function () {
-                return ChromeUtils.sleep(100);
+                return JSUtils.sleep(100);
             }).then(function () {
                 currentScrollPosition = {x: position.left, y: position.top};
             }).then(function () {
@@ -528,7 +529,7 @@
             // Translating to "top/left" of the page (notice this is different from Javascript scrolling).
             return WindowHandler.translateTo(tabId, 0, 0);
         }).then(function () {
-            return ChromeUtils.sleep(1000);
+            return JSUtils.sleep(1000);
         }).then(function () {
             // Capture the first image part, or entire screenshot.
             return WindowHandler.getTabScreenshot(tab, true, scaleRatio, [viewportSize, entirePageSize]);
@@ -589,7 +590,7 @@
                         return WindowHandler.scrollTo(tabId, originalScrollPosition.x, originalScrollPosition.y)
                             .then(function () {
                                 // Give the scrolling time to stabilize.
-                                return ChromeUtils.sleep(100);
+                                return JSUtils.sleep(100);
                             });
                     });
                 }).then(function () {
@@ -607,7 +608,7 @@
 
     /**
      * Get the screenshot of the current tab.
-     * @param {Tab} tab The tab from which the screenshot should be taken.
+     * @param {chrome.tabs.Tab} tab The tab from which the screenshot should be taken.
      * @param {boolean} forceFullPageScreenshot If true, a screenshot of the entire page will be taken.
      * @param {boolean} removeScrollBars If true, scrollbars will be removed before taking the screenshot.
      * @param {object} viewportSize The expected size of the image, in case this is not a full page screenshot.
@@ -615,14 +616,20 @@
      * @return {Promise} A promise which resolves to a Buffer containing the PNG bytes of the screenshot.
      */
     WindowHandler.getScreenshot = function (tab, forceFullPageScreenshot, removeScrollBars, viewportSize) {
-        //noinspection JSUnresolvedVariable
+        var originalTab;
         var tabId = tab.id;
         var entirePageSize, scaleRatio, originalZoom;
         var imageBuffer;
         var originalOverflow = undefined;
 
-        return WindowHandler.getZoom(tabId).then(function (originalZoom_) {
-            originalZoom = originalZoom_ ? originalZoom_ : 1.0;
+        return ChromeUtils.getCurrentTab().then(function (originalTab_) {
+            originalTab = originalTab_;
+        }).then(function () {
+            return ChromeUtils.switchToTab(tabId);
+        }).then(function () {
+            return WindowHandler.getZoom(tabId).then(function (originalZoom_) {
+                originalZoom = originalZoom_ ? originalZoom_ : 1.0;
+            });
         }).then(function () {
             if (originalZoom !== 1.0) {
                 // set the zoom to 100%
@@ -662,6 +669,8 @@
             if (originalZoom !== 1.0) {
                 return WindowHandler.setZoom(tabId, originalZoom, 300);
             }
+        }).then (function () {
+            return ChromeUtils.switchToTab(originalTab.id);
         }).then (function () {
             return RSVP.resolve(imageBuffer);
         });
