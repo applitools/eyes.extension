@@ -301,18 +301,27 @@ window.Applitools = (function () {
      * @private
      */
     Applitools_._cloneTestParams = function (testParams) {
-        return { appName: testParams.appName,
-                testName: testParams.testName,
-                branchName: testParams.branchName,
-                parentBranchName: testParams.parentBranchName,
-                os: testParams.os,
-                hostingApp: testParams.hostingApp,
-                inferred: testParams.inferred,
-                matchLevel: testParams.matchLevel,
-                viewportSize: { width: testParams.viewportSize.width,
-                                height: testParams.viewportSize.height
-                              }
-                };
+        var clonedParams = { appName: testParams.appName,
+                            testName: testParams.testName,
+                            branchName: testParams.branchName,
+                            parentBranchName: testParams.parentBranchName,
+                            os: testParams.os,
+                            hostingApp: testParams.hostingApp,
+                            inferred: testParams.inferred,
+                            matchLevel: testParams.matchLevel,
+                            viewportSize: { width: testParams.viewportSize.width,
+                                            height: testParams.viewportSize.height
+                                          }
+                            };
+        // Optional
+        if (testParams.batch) {
+            clonedParams.batch = {
+                name: testParams.batch.name,
+                id: testParams.batch.id
+            };
+        }
+
+        return clonedParams;
     };
 
     /**
@@ -746,9 +755,6 @@ window.Applitools = (function () {
         var urlsToCrawl;
         var taskRunner = new JSUtils.SequentialTaskRunner();
 
-        // Every crawl is a new batch
-        Applitools_.resetBatchId();
-
         // We start with testing the current tab.
         return ChromeUtils.getCurrentTab().then(function (currentTab_) {
             originalTab = currentTab_;
@@ -759,6 +765,14 @@ window.Applitools = (function () {
             testName = testParams.testName;
             var testParamsLogMessage = Applitools_._buildLogMessage(appName, testName, "Got tests parameters");
             Applitools_._log(testParamsLogMessage);
+
+            // Crawled tests always runs in a new batch, so we give it default values (will be overriden by the
+            // specific tests if necessary).
+            Applitools_.resetBatchId();
+            testParams.batch = {
+                name: appName,
+                id: Applitools_.currentState.batchId
+            };
         }, function (err) {
             return Applitools_._onError('Failed to extract test parameters: ' + err, undefined, undefined)
                 .then(function () {
