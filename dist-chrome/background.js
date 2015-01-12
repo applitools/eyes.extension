@@ -38,6 +38,7 @@ window.Applitools = (function () {
     });
 
     Applitools_.currentState = {
+        runningTestsTabs: [],
         screenshotTakenMutex: {},
         batchId: undefined,
         runningTestsCount: 0,
@@ -640,7 +641,8 @@ window.Applitools = (function () {
             // Give the resized window time to stabilize.
             JSUtils.sleep(1000);
         }).then(function () {
-            return Applitools_._runTest(preparedWindowData.updated.tab, testParams);
+            var taskScheduler = new JSUtils.SequentialTaskRunner();
+            return Applitools_._runTest(taskScheduler, preparedWindowData.updated.tab, testParams);
         }).then(function (testPromises) {
             var tabRestoredPromise = testPromises.screenshotTaken.then(function () {
                 return Applitools_._restoreTab(preparedWindowData.updated.tab,
