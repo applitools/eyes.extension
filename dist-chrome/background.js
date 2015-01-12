@@ -19,12 +19,24 @@ window.Applitools = (function () {
     var _TAB_LOAD_TIME_MS = 10000;
     var _APPLITOOLS_LOGIN_URL = 'https://applitools.com/login/';
 
-    chrome.browserAction.setTitle({title: _DEFAULT_BROWSER_ACTION_TOOLTIP});
-
     // Keeps a mapping of baseline ID to tab ID in order to reuse result tabs
     var _resultTabs = {};
 
+    // A mapping of tabId to currently running tests (appName & testName).
+    var _testTabs = {};
+
     var Applitools_ = {};
+
+    Applitools_.currentState = {
+        screenshotTakenMutex: {},
+        batchId: undefined,
+        runningTestsCount: 0,
+        logs: [],
+        newErrorsExist: false,  // errors were encountered since the last time the extension menu was opened
+        unreadErrorsExist: false // errors were encountered and not read
+    };
+
+    chrome.browserAction.setTitle({title: _DEFAULT_BROWSER_ACTION_TOOLTIP});
 
     // Add a listener to the run-test hotkey.
     chrome.commands.onCommand.addListener(function (command) {
@@ -37,15 +49,25 @@ window.Applitools = (function () {
         }
     });
 
-    Applitools_.currentState = {
-        runningTestsTabs: [],
-        screenshotTakenMutex: {},
-        batchId: undefined,
-        runningTestsCount: 0,
-        logs: [],
-        newErrorsExist: false,  // errors were encountered since the last time the extension menu was opened
-        unreadErrorsExist: false // errors were encountered and not read
-    };
+    chrome.tabs.onRemoved.addListener(function (tabId) {
+        // If a tab was used in a test, and is closed before we finished with it, the test will crash.
+        // So we decrease the number of running tests.
+        if (_testTabs[tabId] !== undefined && _testTabs[tabId] !== false) {
+            var appName = _testTabs[tabId].appName;
+            var testName = _testTabs[tabId].testName;
+            Applitools_.currentState.runningTestsCount =
+                Applitools_.currentState.runningTestsCount - 1 > 0 ? Applitools_.currentState.runningTestsCount - 1 : 0;
+
+            // TODO Daniel - Use testEnded instead
+            // Remove this tab from our list of tabs.
+            delete _testTabs[tabId];
+            Applitools_.updateBrowserActionBadge(false, undefined).then(function () {
+                // Log the event.
+                var msg = Applitools_._buildLogMessage(appName, testName, "Tab was closed before tests was finished!");
+                return Applitools_._log(msg);
+            });
+        }
+    });
 
     /**
      * Sets a new batch ID in the background script state.
@@ -55,6 +77,7 @@ window.Applitools = (function () {
         Applitools_.currentState.batchId = GeneralUtils.guid();
     };
 
+    // TODO Daniel - Move this out of Applitools_ to the current file scope
     /**
      * Logs a message.
      * @param {string} message The message to log
@@ -70,6 +93,7 @@ window.Applitools = (function () {
         return RSVP.resolve(message);
     };
 
+    // TODO Daniel - Move this out of Applitools_ to the current file scope
     /**
      * Creates a log message from the given parameters.
      * @param appName The application name of the test.
@@ -209,10 +233,13 @@ window.Applitools = (function () {
 
     /**
      * Updates relevant items when a test is started.
+     * @param {number} tabId the ID of the tab for which a test is run.
      * @return {Promise} A promise which resolves to the current tests count.
      * @private
      */
-    Applitools_._testStarted = function () {
+    Applitools_._testStarted = function (tabId, appName, testName) {
+        // Updating the currently used tabs.
+        _testTabs[tabId] = {appName: appName, testName: testName};
         Applitools_.currentState.runningTestsCount++;
         return Applitools_._log("Test started").then(function () {
             return Applitools_.updateBrowserActionBadge(false, undefined).then(function () {
@@ -511,7 +538,7 @@ window.Applitools = (function () {
 
         var title = tabToTest.title;
 
-        Applitools_._testStarted().then(function () {
+        Applitools_._testStarted(tabToTest.id, testParams.appName, testParams.testName).then(function () {
             // Checking whether or not we need a full page screenshot, as well as setting batch if necessary.
             return ConfigurationStore.getTakeFullPageScreenshot().then(function (forceFullPageScreenshot_) {
                 forceFullPageScreenshot = forceFullPageScreenshot_;
@@ -663,6 +690,10 @@ window.Applitools = (function () {
             });
             return RSVP.all([tabRestoredPromise, testPromises.testFinished]);
         }).then(function (results) {
+            // TODO Daniel - find a better place to delete the tab
+            // Remove the current tab from our active tab list
+            delete _testTabs[currentTab.id];
+
             var testResults = results[1];
             return Applitools_._handleTestResults(testResults, testParams, preparedWindowData.original.window);
         }).catch(function () {
@@ -724,6 +755,10 @@ window.Applitools = (function () {
         var url = urlsToCrawl.shift();
         // If there are no more URLs to crawl, we can close the tab.
         if (url === undefined) {
+            // Remove the tab from our active tabs list.
+            delete _testTabs[tab.id];
+
+            // Close the tab.
             return ChromeUtils.removeTab(tab.id).then(function () {
                 tabDoneDeferred.resolve();
             });
