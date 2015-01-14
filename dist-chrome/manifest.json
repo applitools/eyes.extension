@@ -1,7 +1,7 @@
 {
     "manifest_version": 2,
 
-    "name": "Applitools Eyes",
+    "name": "Applitools Eyes Express",
     "short_name": "Eyes",
     "description": "Applitools Eyes browser extension allows you to run visual tests directly from the browser. No coding required.",
     "version": "1.12",
