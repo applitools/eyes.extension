@@ -450,7 +450,7 @@
             // Try to scroll to the required position, and give it time to stabilize.
             //noinspection JSUnresolvedVariable
             return WindowHandler.translateTo(tab.id, position.left, position.top).then(function () {
-                return JSUtils.sleep(100);
+                return JSUtils.sleep(250);
             }).then(function () {
                 currentScrollPosition = {x: position.left, y: position.top};
             }).then(function () {
@@ -590,7 +590,7 @@
                         return WindowHandler.scrollTo(tabId, originalScrollPosition.x, originalScrollPosition.y)
                             .then(function () {
                                 // Give the scrolling time to stabilize.
-                                return JSUtils.sleep(100);
+                                return JSUtils.sleep(250);
                             });
                     });
                 }).then(function () {

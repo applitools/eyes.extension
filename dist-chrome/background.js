@@ -111,7 +111,6 @@ window.Applitools = (function () {
      * @param {boolean} isError Whether to display an error notification or a normal notification (if required).
      * @param {string|undefined} title (Optional) The browser action title will be set to this title.
      * @return {Promise} A promise which resolves when the badge is set.
-     * @private
      */
     Applitools_.updateBrowserActionBadge = function (isError, title) {
         if (isError) {
@@ -234,6 +233,8 @@ window.Applitools = (function () {
     /**
      * Updates relevant items when a test is started.
      * @param {number} tabId the ID of the tab for which a test is run.
+     * @param {string} appName The test's application name.
+     * @param {number} testName The test's name.
      * @return {Promise} A promise which resolves to the current tests count.
      * @private
      */
@@ -675,7 +676,7 @@ window.Applitools = (function () {
         }).then(function (preparedWindowData_) {
             preparedWindowData = preparedWindowData_;
             // Give the resized window time to stabilize.
-            JSUtils.sleep(1000);
+            return JSUtils.sleep(1000);
         }).then(function () {
             var taskScheduler = new JSUtils.SequentialTaskRunner();
             return Applitools_._runTest(taskScheduler, preparedWindowData.updated.tab, testParams);

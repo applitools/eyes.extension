@@ -5,10 +5,10 @@ $EXTENSION_SIZE_PLUS_ONE: 53px;
 
 #mainPanel {
   position: relative;
-  width: 524px;
+  min-width: 524px;
   // We use the "plus one" size so we can call "Set size" from the javascript (see: "_initMainPanel" in popup.js)
   height: $EXTENSION_SIZE_PLUS_ONE;
-  overflow-y: hidden;
+  overflow: hidden;
   white-space: nowrap;
   @include userSelect(none);
   cursor: default;
