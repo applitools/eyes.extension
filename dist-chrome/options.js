@@ -129,7 +129,7 @@
     };
 
     /**
-     * Loads the saves value to the options' page Eyes server text input.
+     * Loads the saved value to the input element.
      * @return {Promise} A promise which resolves to the element when the text input is set.
      * @private
      */
@@ -170,6 +170,58 @@
     };
 
     /**
+     * Saves the page part wait time.
+     * @return {Promise} A promise which resolves when the save is finished.
+     * @private
+     */
+    var _savePagePartWaitTime = function () {
+        var pagePartWaitTime = document.getElementById('pagePartWaitTime').value;
+        pagePartWaitTime = (pagePartWaitTime && pagePartWaitTime.trim()) ? parseInt(pagePartWaitTime, 10) : undefined;
+        return ConfigurationStore.setPagePartWaitTime(pagePartWaitTime);
+    };
+
+    /**
+     * Loads the saved value to the input element.
+     * @return {Promise} A promise which resolves to the element when the text input is set.
+     * @private
+     */
+    var _restorePagePartWaitTime = function () {
+        var pagePartWaitTimeElement = document.getElementById('pagePartWaitTime');
+        return ConfigurationStore.getPagePartWaitTime().then(function (pagePartWaitTime) {
+            pagePartWaitTimeElement.value = pagePartWaitTime.toString();
+            return RSVP.resolve(pagePartWaitTimeElement);
+        });
+    };
+
+    /**
+     * Loads the required value and sets required listeners.
+     * @return {Promise} A promise which resolves to the element when the initialization is finished.
+     * @private
+     */
+    var _initPagePartWaitTime = function () {
+        return _restorePagePartWaitTime().then(function (element) {
+            // Registering for the change event so we'll know when to update the element.
+            element.addEventListener('change', _savePagePartWaitTime);
+            return RSVP.resolve(element);
+        });
+    };
+
+    /**
+     * Sets the required listeners on the restoreDefaultUrl button.
+     * @return {Promise} A promise which resolves when finished setting the listener.
+     * @private
+     */
+    var _initRestoreDefaultPagePartWaitTimeButton = function () {
+        var restoreDefaultPagePartWaitTimeButton = document.getElementById('restoreDefaultPagePartWaitTime');
+        restoreDefaultPagePartWaitTimeButton.addEventListener('click', function () {
+            return ConfigurationStore.setPagePartWaitTime(undefined).then(function () {
+                return _restorePagePartWaitTime();
+            });
+        });
+        return RSVP.resolve();
+    };
+
+    /**
      * Loads logs into the logs section.
      * @return {Promise} A promise which resolves when the logs are loaded.
      * @private
@@ -193,7 +245,8 @@
     var _initPage = function () {
         // We're done when ALL options are loaded.
         return RSVP.all([Applitools.optionsOpened(), _initNewTabForResults(), _initTakeFullPageScreenshot(),
-            _initRemoveScrollBars(), _initEyesServerUrl(), _initRestoreDefaultUrlButton(), _restoreLogs()]);
+            _initRemoveScrollBars(), _initEyesServerUrl(), _initRestoreDefaultUrlButton(), _initPagePartWaitTime(),
+            _initRestoreDefaultPagePartWaitTimeButton(), _restoreLogs()]);
     };
 
     document.addEventListener('DOMContentLoaded', _initPage);

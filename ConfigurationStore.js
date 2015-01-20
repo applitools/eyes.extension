@@ -22,6 +22,7 @@
     var _TAKE_FULL_PAGE_SCREENSHOT_LK = 'takeFullPageScreenshot';
     var _REMOVE_SCROLLBARS_LK = 'scrollBars';
     var _EYES_SERVER_URL_LK = 'eyesServer';
+    var _PAGE_PART_WAIT_TIME_LK = 'pagePartWaitTime';
 
     var _API_KEY_COOKIE_URL = 'https://applitools.com';
     var _API_KEY_COOKIE_NAME = 'account-id';
@@ -38,6 +39,8 @@
     var _DEFAULT_MATCH_LEVEL = 'Strict';
 
     var _DEFAULT_EYES_SERVER_URL = 'https://eyessdk.applitools.com';
+
+    var _DEFAULT_PAGE_PART_WAIT_TIME = 300; // Milliseconds
 
     /**
      * Available viewport sizes for performing a match.
@@ -294,6 +297,26 @@
             eyesServerUrl = _DEFAULT_EYES_SERVER_URL;
         }
         return StorageAdapter.setItem(_EYES_SERVER_URL_LK, eyesServerUrl);
+    };
+
+    /**
+     * @return {Promise} A promise which resolves to the saved page part wait time, or the predefined default
+     * if there's no such value in the storage.
+     */
+    ConfigurationStore.getPagePartWaitTime = function () {
+        return StorageAdapter.getItem(_PAGE_PART_WAIT_TIME_LK, _DEFAULT_PAGE_PART_WAIT_TIME);
+    };
+
+    /**
+     * @param {number|undefined} waitTime The value to save. Undefined value will cause the predefined default to
+     *                                          be set.
+     * @return {Promise} A promise which resolves when the value is saved, or rejects otherwise.
+     */
+    ConfigurationStore.setPagePartWaitTime = function (waitTime) {
+        if (waitTime === undefined || waitTime <= 0) {
+            waitTime = _DEFAULT_PAGE_PART_WAIT_TIME;
+        }
+        return StorageAdapter.setItem(_PAGE_PART_WAIT_TIME_LK, waitTime);
     };
 
     /**

@@ -7,6 +7,7 @@
     //noinspection JSUnresolvedFunction
     var RSVP = require('rsvp'),
         ChromeUtils = require('./ChromeUtils'),
+        ConfigurationStore = require('./../ConfigurationStore'),
         JSUtils = require('./../JSUtils');
 
     var EyesUtils = require('eyes.utils'),
@@ -443,14 +444,18 @@
      * @private
      */
     WindowHandler._getPagePart = function (partsPromise, tab, partRegion, scaleRatio, viewportSize) {
-        var currentScrollPosition;
+        var currentScrollPosition, pagePartWaitTime;
         var position = {left: partRegion.left, top: partRegion.top};
         var partSize = {width: partRegion.width, height: partRegion.height};
         return partsPromise.then(function () {
-            // Try to scroll to the required position, and give it time to stabilize.
-            //noinspection JSUnresolvedVariable
-            return WindowHandler.translateTo(tab.id, position.left, position.top).then(function () {
-                return JSUtils.sleep(250);
+            return ConfigurationStore.getPagePartWaitTime().then(function (waitTime) {
+                pagePartWaitTime = waitTime;
+            }).then(function () {
+                // Try to scroll to the required position, and give it time to stabilize.
+                //noinspection JSUnresolvedVariable
+                return WindowHandler.translateTo(tab.id, position.left, position.top).then(function () {
+                    return JSUtils.sleep(pagePartWaitTime);
+                });
             }).then(function () {
                 currentScrollPosition = {x: position.left, y: position.top};
             }).then(function () {

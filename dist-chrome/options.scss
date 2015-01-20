@@ -17,11 +17,11 @@ $OPTION_BORDER_COLOR: #b4b4b4;
 
 .optionContainer {
   width: 933px;
-  height: 75px;
+  height: 65px;
   border: 1px solid $OPTION_BORDER_COLOR;
-  margin-top: 30px;
+  margin-top: 20px;
   margin-left: 34px;
-  padding: 18px 0 18px 27px;
+  padding: 14px 0 14px 27px;
 }
 
 .optionValue {
@@ -46,8 +46,22 @@ $OPTION_BORDER_COLOR: #b4b4b4;
 
 #restoreDefaultUrl {
   @include classicButton;
-  margin-top: 10px;
+  margin-top: 7px;
   margin-left: 114px;
+}
+
+#pagePartWaitTime {
+  font-size: 12px;
+  width: 297px;
+  height: 34px;
+  margin-left: 19px;
+  text-indent: 5px;
+}
+
+#restoreDefaultPagePartWaitTime {
+  @include classicButton;
+  margin-top: 7px;
+  margin-left: 139px;
 }
 
 .optionHelp {
@@ -59,7 +73,8 @@ $OPTION_BORDER_COLOR: #b4b4b4;
 }
 
 #logsContainer {
-  margin-top: 28px;
+  margin-top: 20px;
+  margin-bottom: 10px;
   white-space: nowrap;
 
   .bar {
