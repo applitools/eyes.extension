@@ -565,7 +565,7 @@ window.Applitools = (function () {
             // Get a screenshot of the given tab as PNG. We must run this using the task scheduler,
             // since the screenshot must be taken when the tab is active.
             var screenshotTask = new JSUtils.ScheduledTask(WindowHandler.getScreenshot,
-                [tabToTest, forceFullPageScreenshot, removeScrollBars, testParams.viewportSize]);
+                [tabToTest, forceFullPageScreenshot, removeScrollBars, testParams.viewportSize, false]);
             return taskScheduler.addTask(screenshotTask);
         }).then(function (image) {
             // We got the image, so resolve the relevant deferred

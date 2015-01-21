@@ -618,14 +618,18 @@
      * @param {boolean} removeScrollBars If true, scrollbars will be removed before taking the screenshot.
      * @param {object} viewportSize The expected size of the image, in case this is not a full page screenshot.
      *                                      This helps us to decide whether or not to scale the image.
+     * @param {boolean|undefined} switchBackToOriginalTab If true, after taking the screenshot, the function will switch back to
+     *                                          the current tab. Default is {@code true}.
      * @return {Promise} A promise which resolves to a Buffer containing the PNG bytes of the screenshot.
      */
-    WindowHandler.getScreenshot = function (tab, forceFullPageScreenshot, removeScrollBars, viewportSize) {
+    WindowHandler.getScreenshot = function (tab, forceFullPageScreenshot, removeScrollBars, viewportSize,
+                                            switchBackToOriginalTab) {
         var originalTab;
         var tabId = tab.id;
         var entirePageSize, scaleRatio, originalZoom;
         var imageBuffer;
         var originalOverflow = undefined;
+        switchBackToOriginalTab = switchBackToOriginalTab !== undefined ? switchBackToOriginalTab : true;
 
         return ChromeUtils.getCurrentTab().then(function (originalTab_) {
             originalTab = originalTab_;
@@ -675,9 +679,14 @@
                 return WindowHandler.setZoom(tabId, originalZoom, 300);
             }
         }).then (function () {
-            return ChromeUtils.switchToTab(originalTab.id);
+            if (switchBackToOriginalTab) {
+                return ChromeUtils.switchToTab(originalTab.id);
+            }
         }).then (function () {
             return RSVP.resolve(imageBuffer);
+        }, function () {
+            // We failed to switch to the original tab.
+            return RSVP.reject("Failed to switch back to original tab: " + originalTab.id);
         });
     };
 
