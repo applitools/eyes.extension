@@ -314,7 +314,7 @@ window.Applitools = (function () {
      * @private
      */
     Applitools_._getDefaultTestName = function (url) {
-        var pathRegexResult = /https?:\/\/[\w\.\-]+?(\/\S*)(?:\?|$)/.exec(url);
+        var pathRegexResult = /https?:\/\/[^\r\n]+?(\/[^\r\n]*)(?:\?|$)/.exec(url);
         var testName = "Homepage"; // default
         if (pathRegexResult && pathRegexResult[1] !== '/') {
             testName = pathRegexResult[1];
@@ -398,7 +398,7 @@ window.Applitools = (function () {
                     });
                 });
             } else {
-                var domainRegexResult = /https?:\/\/([\w\.\-]+)?\//.exec(currentUrl);
+                var domainRegexResult = /https?:\/\/([^\r\n]+?)(?:\/|:|\?|#|$)/.exec(currentUrl);
                 var defaultAppName = domainRegexResult ? domainRegexResult[1] : currentUrl;
                 // If the user selected specific app and test names, we use them.
                 if (baselineSelectionId === 'userValuesSelection') {
