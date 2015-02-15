@@ -132,7 +132,9 @@
      * @return {Promise} A promise which resolves to the scroll position (x/y).
      */
     WindowHandler.getCurrentScrollPosition = function (tabId) {
+        //noinspection JSLint
         var leftPromise = ChromeUtils.executeScript(tabId, 'var doc = document.documentElement; var resultX = (window.pageXOffset || doc.scrollLeft) - (doc.clientLeft || 0); resultX', undefined);
+        //noinspection JSLint
         var topPromise = ChromeUtils.executeScript(tabId, 'var doc = document.documentElement; var resultY = (window.pageYOffset || doc.scrollTop)  - (doc.clientTop || 0); resultY', undefined);
 
         return RSVP.hash({x: leftPromise, y: topPromise}).then(function (results) {
@@ -171,14 +173,16 @@
      * @param {string} transformToSet The transform to set.
      * @param {number|undefined} stabilizationTimeMs (optional) The amount of time to wait after setting the transform
      *                                                  to let the browser stabilize (e.g., re-render).
-     * @return {Promise} A promise which resolves to the current transform value.
+     * @return {Promise} A promise which resolves to the previous transform once the updated transform is set.
      */
     WindowHandler.setTransform = function (tabId, transformToSet, stabilizationTimeMs) {
         if (!transformToSet) {
             transformToSet = '';
         }
         return ChromeUtils.executeScript(tabId,
-            "document.body.style.transform = '" + transformToSet + "'",
+            "var originalTransform = document.body.style.transform; " +
+            "document.body.style.transform = '" + transformToSet + "'; " +
+            "originalTransform",
             stabilizationTimeMs)
             .then(function (results) {
                 return RSVP.resolve(results[0]);
@@ -190,7 +194,7 @@
      * @param {number} tabId The ID of the tab in which we would like to scroll.
      * @param {int} x The x value of the position to scroll to.
      * @param {int} y The y value of the position to scroll to.
-     * @return {Promise} A promise which resolves when the scroll is executed.
+     * @return {Promise} A promise which resolves to the previous transfrom when the scroll is executed.
      */
     WindowHandler.translateTo = function (tabId, x, y) {
         return WindowHandler.setTransform(tabId, 'translate(-' + x + 'px, -' + y + 'px)', 250);
