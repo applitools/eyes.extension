@@ -1,5 +1,5 @@
 /**
- * Background script for the extension. All code which should still run
+ * Background script for the extension. All code which should still run even when the extension window is not visible.
  */
 window.Applitools = (function () {
     "use strict";

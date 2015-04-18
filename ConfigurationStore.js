@@ -25,7 +25,7 @@
     var _PAGE_PART_WAIT_TIME_LK = 'pagePartWaitTime';
 
     var _API_KEY_COOKIE_URL = 'https://applitools.com';
-    var _API_KEY_COOKIE_NAME = 'account-id';
+    var _API_KEY_COOKIE_NAME = 'run-key';
 
     var ConfigurationStore = {};
 
