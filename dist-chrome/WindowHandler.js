@@ -382,7 +382,7 @@
         //noinspection JSUnresolvedVariable
         chrome.tabs.captureVisibleTab(tab.windowId, {format: "png"}, function (originalDataUri) {
             var updatedImagePromise = RSVP.resolve();
-            // If there are size not to scale, we compare them to the current size of the image.
+            // If there are sizes not to scale, we compare them to the current size of the image.
             if (sizesNotToScale && sizesNotToScale.length) {
                 updatedImagePromise = updatedImagePromise.then(function () {
                     var updatedImageDeferred = RSVP.defer();

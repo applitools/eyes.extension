@@ -5,20 +5,11 @@
     "use strict";
 
     //noinspection JSUnresolvedFunction
-    var RSVP = require('rsvp'),
-        EyesImages = require('eyes.images'),
+    var EyesImages = require('eyes.images'),
         Eyes = EyesImages.Eyes,
+        MatchLevel = EyesImages.MatchLevel,
         ConsoleLogHandler = EyesImages.ConsoleLogHandler,
-        EyesUtils = require('eyes.utils'),
-        PromiseFactory = EyesUtils.PromiseFactory,
         ConfigurationStore = require('./ConfigurationStore.js');
-
-    PromiseFactory.setFactoryMethods(function (asyncAction) {
-        return new RSVP.Promise(asyncAction);
-    }, function () {
-        return RSVP.defer();
-    });
-    EyesUtils.setPromiseFactory(PromiseFactory);
 
     var EyesHandler = {};
 
@@ -34,9 +25,13 @@
                 if (testParams.batch && testParams.batch.id) {
                     eyes.setBatch(testParams.batch.name, testParams.batch.id);
                 }
-                eyes.setAgentId('eyes.extension.chrome/1.17');
+                eyes.setAgentId('eyes.extension.chrome/1.18');
                 // TODO Daniel - hack, to use layout2 instead of layout as an experiment.
-                eyes._matchLevel = testParams.matchLevel === 'Layout' ? 'Layout2' : testParams.matchLevel;
+                if (testParams.matchLevel === 'Layout') {
+                    eyes.setMatchLevel(MatchLevel.Layout2);
+                } else {
+                    eyes.setMatchLevel(testParams.matchLevel);
+                }
                 //eyes.setMatchLevel(testParams.matchLevel);
                 eyes.setBranchName(testParams.branchName);
                 eyes.setParentBranchName(testParams.parentBranchName);
