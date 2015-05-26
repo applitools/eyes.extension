@@ -509,7 +509,7 @@
     var _onInputElementsSelected = function (elements) {
         for (var i=0; i<elements.length; ++i) {
             var currentElement = elements[i];
-            if (!currentElement.contains(_SELECTED_CLASS)) {
+            if (!currentElement.classList.contains(_SELECTED_CLASS)) {
                 currentElement.classList.add(_SELECTED_CLASS);
             }
         }
