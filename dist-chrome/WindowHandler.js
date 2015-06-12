@@ -594,7 +594,7 @@
                 }
 
                 return partsPromise.then(function () {
-                    return WindowHandler.translateTo(tabId, 0, 0).then (function () {
+                    return WindowHandler.setTransform(tabId, originalTransform, 250).then(function () {
                         // Okay, we've got all the parts, return to the original location.
                         return WindowHandler.scrollTo(tabId, originalScrollPosition.x, originalScrollPosition.y)
                             .then(function () {
