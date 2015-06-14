@@ -315,6 +315,7 @@ $EXTENSION_SIZE_PLUS_ONE: 53px;
   position: relative;
   top: 3px;
   left: 2px;
+  margin-right: 15px;
 
   //noinspection CssUnknownTarget
   background: url('../images/icon_restart_regular.png') no-repeat;
@@ -353,8 +354,32 @@ $EXTENSION_SIZE_PLUS_ONE: 53px;
   border-top: solid 1px #a8a8a8;
 
   #batchName {
-    width: 455px;
+    width: 392px;
   }
+}
+
+$INSTRUCTIONS_LOAD_WIDTH: 40px;
+$INSTRUCTIONS_LOAD_PADDING: 5px;
+
+#instructionsLoadWrapper {
+  display: inline-block;
+  position: relative;
+  top: 10px;
+  width: $INSTRUCTIONS_LOAD_WIDTH;
+  overflow: hidden;
+  border: 1px solid #a8a8a8;
+  border-radius: 4px;
+  padding: $INSTRUCTIONS_LOAD_PADDING;
+}
+
+#instructionsLoadButton {
+  position: absolute;
+  top: 0;
+  right: 0;
+  margin: 0;
+  padding: $INSTRUCTIONS_LOAD_PADDING;
+  opacity: 0;
+  width: $INSTRUCTIONS_LOAD_WIDTH;
 }
 
 #baselinePanel {
