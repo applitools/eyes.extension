@@ -382,6 +382,81 @@ $INSTRUCTIONS_LOAD_PADDING: 5px;
   width: $INSTRUCTIONS_LOAD_WIDTH;
 }
 
+#instructionsPanel {
+  margin-bottom: 6px;
+  -webkit-user-select: none;
+}
+
+#instructionText {
+  padding: 1px;
+  margin: 0 15px;
+  height: 21px;
+  font-style: normal;
+  text-indent: 5px;
+  color: $DEFAULT_FONT_COLOR;
+  overflow: hidden;
+  width: 394px;
+  text-overflow: ellipsis;
+  border: 0;
+}
+
+.instructionsNavigationButton {
+  margin-right: 15px;
+  width: 17px;
+  height: 17px;
+  display: inline-block;
+  background-position-y: 0px;
+  position: relative;
+  top: 4px;
+  left: 2px;
+}
+
+#nextInstruction {
+  //noinspection CssUnknownTarget
+  background: url('../images/arrow_right_regular.png') no-repeat;
+
+  &:hover {
+    //noinspection CssUnknownTarget
+    background-image: url('../images/arrow_right_over.png');
+  }
+
+  &:active {
+    //noinspection CssUnknownTarget
+    background-image: url('../images/arrow_right_active.png');
+  }
+}
+
+#prevInstruction {
+  //noinspection CssUnknownTarget
+  background: url('../images/arrow_left_regular.png') no-repeat;
+
+  &:hover {
+    //noinspection CssUnknownTarget
+    background-image: url('../images/arrow_left_over.png');
+  }
+
+  &:active {
+    //noinspection CssUnknownTarget
+    background-image: url('../images/arrow_left_active.png');
+  }
+}
+
+#closeInstructionsPanel {
+  //noinspection CssUnknownTarget
+  background: url('../images/xclose_regular.png') no-repeat;
+
+  &:hover {
+    //noinspection CssUnknownTarget
+    background-image: url('../images/xclose_over.png');
+  }
+
+  &:active {
+    //noinspection CssUnknownTarget
+    background-image: url('../images/xclose_active.png');
+  }
+}
+
+
 #baselinePanel {
   min-width: 448px;
 

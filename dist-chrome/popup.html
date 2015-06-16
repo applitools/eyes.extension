@@ -26,7 +26,16 @@
     --><div id="batchPanel" class="notDisplayed" tabindex="-1"><!--
         --><input type="text" class="userInput longInput" name="batchName" id="batchName" placeholder="Session name" title="The session name." tabindex="1"><!--
         --><span id="newBatchId" title="Start a new session with the same name."></span><!--
-        --><span id="instructionsLoadWrapper"><span id="instructionsLoadText">Steps...</span><input type="file" id="instructionsLoadButton"></span><!--
+        --><span id="instructionsLoadWrapper"><!--
+            --><span id="instructionsLoadText" title="Load test step descriptions from a text file.">Steps...</span><!--
+            --><input type="file" id="instructionsLoadButton"><!--
+        --></span><!--
+        --><div id="instructionsPanel" class="notDisplayed"><!--
+            --><input id="instructionText" class="userInput longInput" readonly value=""><!--
+            --><span id="prevInstruction" class="instructionsNavigationButton" title="Move to the previous step."></span><!--
+            --><span id="nextInstruction" class="instructionsNavigationButton" title="Move to the next step."></span><!--
+            --><span id="closeInstructionsPanel" class="instructionsNavigationButton" title="Leave 'steps' mode."></span><!--
+        --></div><!--
     --></div><!--
     --><div id="baselinePanel" class="notDisplayed" tabindex="-1">
         <div class="selectionContainer defaultValuesContainer" tabindex="1"><!--

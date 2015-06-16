@@ -33,7 +33,9 @@ window.Applitools = (function () {
         runningTestsCount: 0,
         logs: [],
         newErrorsExist: false,  // errors were encountered since the last time the extension menu was opened
-        unreadErrorsExist: false // errors were encountered and not read
+        unreadErrorsExist: false, // errors were encountered and not read
+        instructions: [],
+        currentInstructionIndex: undefined
     };
 
     chrome.browserAction.setTitle({title: _DEFAULT_BROWSER_ACTION_TOOLTIP});
@@ -68,6 +70,75 @@ window.Applitools = (function () {
             });
         }
     });
+
+    /**
+     * Sets test instructions.
+     * @param {Array} instructions A list of instructions for the test.
+     */
+    Applitools_.setInstructions = function (instructions) {
+        Applitools_.currentState.instructions = instructions;
+        Applitools_.currentState.currentInstructionIndex = 0;
+        return RSVP.resolve();
+    };
+
+    /**
+     * Removes the instructions.
+     */
+    Applitools_.resetInstructions = function () {
+        Applitools_.currentState.instructions = [];
+        Applitools_.currentState.currentInstructionIndex = undefined;
+        return RSVP.resolve();
+    };
+
+    /**
+     * @returns {number} The number of instructions.
+     */
+    Applitools_.getInstructionsCount = function () {
+        return RSVP.resolve(Applitools_.currentState.instructions.length);
+    };
+
+    /**
+     * @returns {number} The index of the current instruction.
+     */
+    Applitools_.getCurrentInstructionIndex = function () {
+        return RSVP.resolve(Applitools_.currentState.currentInstructionIndex);
+    };
+
+    /**
+     * @returns {number} Set the current instruction to be the next instruction.
+     */
+    Applitools_.nextInstruction = function () {
+        if (Applitools_.currentState.currentInstructionIndex !== undefined &&
+                Applitools_.currentState.currentInstructionIndex >= 0 &&
+                Applitools_.currentState.currentInstructionIndex < (Applitools_.currentState.instructions.length - 1)) {
+            ++Applitools_.currentState.currentInstructionIndex;
+        }
+        return RSVP.resolve(Applitools_.currentState.currentInstructionIndex);
+    };
+
+    /**
+     * @returns {number} Set the current instruction to be the next instruction.
+     */
+    Applitools_.prevInstruction = function () {
+        if (Applitools_.currentState.currentInstructionIndex !== undefined &&
+                Applitools_.currentState.currentInstructionIndex > 0) {
+            --Applitools_.currentState.currentInstructionIndex;
+        }
+        return RSVP.resolve(Applitools_.currentState.currentInstructionIndex);
+    };
+
+    /**
+     * Get the instruction in the given index.
+     * @param {number} index The index of the instruction to retrieve.
+     * @returns {String|undefined} The instruction in the given index, or undefined if the index is out of bounds.
+     */
+    Applitools_.getInstruction = function (index) {
+        if (index < 0 || index >= Applitools_.getInstructionsCount()) {
+            return undefined;
+        }
+
+        return Applitools_.currentState.instructions[index];
+    };
 
     /**
      * Sets a new batch ID in the background script state.
@@ -372,7 +443,8 @@ window.Applitools = (function () {
             var testParamsPromise;
             var defaultTestName = Applitools_._getDefaultTestName(currentUrl);
 
-            if (baselineSelectionId === 'stepUrlSelection') {
+            if (baselineSelectionId === 'stepUrlSelection' &&
+                    Applitools_.currentState.currentInstructionIndex === undefined) {
                 testParamsPromise = ConfigurationStore.getBaselineStepUrl().then(function (baselineStepUrl) {
                     var baselineStepUrlParams = Applitools_.extractStepUrlParameters(baselineStepUrl);
                     if (!baselineStepUrlParams) {
@@ -405,12 +477,24 @@ window.Applitools = (function () {
                     testParamsPromise = ConfigurationStore.getBaselineAppName().then(function (appName) {
                         return ConfigurationStore.getBaselineTestName().then(function (testName) {
                             appName = appName || defaultAppName;
-                            testName = forceDefaultTestName ? defaultTestName : (testName || defaultTestName);
+                            if (forceDefaultTestName) {
+                                testName = defaultTestName;
+                            } else if (Applitools_.currentState.currentInstructionIndex) {
+                                var ix = Applitools_.currentState.currentInstructionIndex;
+                                testName = Applitools_.currentState.instructions[ix];
+                            } else {
+                                testName = testName || defaultTestName;
+                            }
                             return RSVP.resolve({appName: appName, testName: testName});
                         });
                     });
                 } else { // Use the domain as the app name, and the path as the test name.
-                    testParamsPromise = RSVP.resolve({appName: defaultAppName, testName: defaultTestName});
+                    var testName = defaultTestName;
+                    if (Applitools_.currentState.currentInstructionIndex) {
+                        var ix = Applitools_.currentState.currentInstructionIndex;
+                        testName = Applitools_.currentState.instructions[ix];
+                    }
+                    testParamsPromise = RSVP.resolve({appName: defaultAppName, testName: testName});
                 }
 
                 testParamsPromise = testParamsPromise.then(function (testParams) {

@@ -23,6 +23,12 @@
         _BASELINE_PANEL_ELEMENT_ID = "baselinePanel",
         _SHOW_BASELINE_ELEMENT_ID = "showBaseline",
         _BATCH_PANEL_ELEMENT_ID = "batchPanel",
+        _INSTRUCTIONS_PANEL_ELEMENT_ID = "instructionsPanel",
+        _INSTRUCTION_TEXT_ELEMENT_ID = "instructionText",
+        _PREV_INSTRUCTION_BUTTON_ELEMENT_ID = "prevInstruction",
+        _NEXT_INSTRUCTION_BUTTON_ELEMENT_ID = "nextInstruction",
+        _CLOSE_INSTRUCTIONS_PANEL_ELEMENT_ID = "closeInstructionsPanel",
+        _INSTRUCTIONS_LOAD_BUTTON_ELEMENT_ID = "instructionsLoadButton",
         _SHOW_BATCH_PANEL_ELEMENT_ID = "showBatchPanel",
         _MATCH_LEVEL_ELEMENT_ID = "matchLevel",
         _VIEWPORT_SIZE_ELEMENT_ID = "viewportSize",
@@ -107,6 +113,30 @@
 
     var _getShowBatchPanelElement = function () {
         return document.getElementById(_SHOW_BATCH_PANEL_ELEMENT_ID);
+    };
+
+    var _getInstructionsPanelElement = function () {
+        return document.getElementById(_INSTRUCTIONS_PANEL_ELEMENT_ID);
+    };
+
+    var _getInstructionTextElement = function () {
+        return document.getElementById(_INSTRUCTION_TEXT_ELEMENT_ID);
+    };
+
+    var _getCloseInstructionsPanelElement = function () {
+        return document.getElementById(_CLOSE_INSTRUCTIONS_PANEL_ELEMENT_ID);
+    };
+
+    var _getInstructionLoadButtonElement = function () {
+        return document.getElementById(_INSTRUCTIONS_LOAD_BUTTON_ELEMENT_ID);
+    };
+
+    var _getNextInstructionButtonElement = function () {
+        return document.getElementById(_NEXT_INSTRUCTION_BUTTON_ELEMENT_ID);
+    };
+
+    var _getPrevInstructionButtonElement = function () {
+        return document.getElementById(_PREV_INSTRUCTION_BUTTON_ELEMENT_ID);
     };
 
     //noinspection JSUnusedLocalSymbols
@@ -294,6 +324,24 @@
     };
 
     /**
+     * Show/Hide the instructions panel.
+     * @param shouldShow Whether to show or hide the panel.
+     * @return {Promise} A promise which resolves to the instructions panel element.
+     * @private
+     */
+    var _showInstructionsPanel = function (shouldShow) {
+        var instructionsPanel = _getInstructionsPanelElement();
+
+        if (shouldShow) {
+            instructionsPanel.classList.remove(_NOT_DISPLAYED_CLASS);
+        } else {
+            instructionsPanel.classList.add(_NOT_DISPLAYED_CLASS);
+        }
+
+        return RSVP.resolve(instructionsPanel);
+    };
+
+    /**
      * Handle user selection of a match level value.
      * @return {Promise} A promise which resolves to the user selected value when done handling the value change.
      * @private
@@ -380,7 +428,6 @@
         runElement.addEventListener("click", function () {
             // IMPORTANT All test logic must run in the background page! This is because when the popup is closed,
             // the Javascript in the popup js file stops immediately, it does not wait for operations to complete.
-            //Applitools.runSingleTest();
             Applitools.runSingleTest();
         });
         return RSVP.resolve(runElement);
@@ -711,9 +758,185 @@
         return RSVP.resolve(newBatchIdElement);
     };
 
+    var _updateInstructionText = function () {
+
+        return new RSVP.Promise(function (resolve, reject) {
+            var instructionsCount, currentInstructionIndex, instructionText;
+            Applitools.getInstructionsCount().then(function (instructionsCount_) {
+                instructionsCount = instructionsCount_;
+            }).then(function () {
+                return Applitools.getCurrentInstructionIndex()
+            }).then(function (currentInstructionIndex_) {
+                currentInstructionIndex = currentInstructionIndex_;
+            }).then(function () {
+                if (currentInstructionIndex === undefined) {
+                    return undefined;
+                }
+                return Applitools.getInstruction(currentInstructionIndex);
+            }).then(function (instructionText_) {
+                if (instructionText_ !== undefined) {
+                    // The "+1" is to show the index in a human format :)
+                    instructionText = (currentInstructionIndex+1) + "/" + instructionsCount + ": " + instructionText_;
+                } else {
+                    instructionText = '';
+                }
+                // We have a current instruction, so we set it for the user to see
+                var instructionTextElement = _getInstructionTextElement();
+                instructionTextElement.value = instructionText;
+                instructionTextElement.title = instructionText;
+
+                resolve(instructionText);
+            });
+
+        });
+    };
+
     /**
-     * Initializes the elements on the baseline panel.
-     * @return {Promise} A promise which resolves when all the baseline panel's elements are initialized.
+     * Handle the instructions load event.
+     * @return A promise which is resolved to the array of instructions when the file is loaded.
+     * @private
+     */
+    var _onInstructionsLoad = function () {
+        // Since this function is a direct event handler for a DOM element, "this" refers to the "File" element.
+        var fileInput = this;
+        return new RSVP.Promise(function (resolve, reject) {
+            var instructionsFile = fileInput.files[0];
+
+            var reader = new FileReader();
+            reader.onload = function (e) {
+                var instructions = e.target.result.split("\n");
+                // We reset the value of the load button so that we can re-open the same file is needed.
+                _getInstructionLoadButtonElement().value = '';
+                return Applitools.setInstructions(instructions)
+                    .then(function () {
+                        return _updateInstructionText();
+                    }).then(function () {
+                        return _showInstructionsPanel(true);
+                    }).then(function () {
+                        _resetBatchId();
+                    }).then(function () {
+                        resolve(instructions);
+                    });
+            };
+
+            // FIXME add handling reader.onerror
+
+            reader.readAsText(instructionsFile);
+        });
+    };
+
+    /**
+     * Initializes the instructions panel's close button with the required listeners.=
+     * @return {Promise} A promise which resolves to the batchName element.
+     * @private
+     */
+    var _initInstructionsLoadButton = function () {
+        var instructionsLoadButtonElement = _getInstructionLoadButtonElement();
+        instructionsLoadButtonElement.addEventListener('change', _onInstructionsLoad);
+        return RSVP.resolve(instructionsLoadButtonElement);
+    };
+
+    /**
+     * Close the instructions panel and stop using instructions.
+     * @return {Promise} A promise which resolves when the instructions panel is closed.
+     * @private
+     */
+    var _onCloseInstructionsPanel = function () {
+        return Applitools.resetInstructions()
+            .then(function () {
+                return _showInstructionsPanel(false);
+            });
+    };
+
+    /**
+     * Update to the next instruction in the instructions list.
+     * @return {Promise} A promise which resolves when the instruction is updated.
+     * @private
+     */
+    var _onNextInstruction = function () {
+        return Applitools.nextInstruction()
+            .then(function () {
+                return _updateInstructionText();
+            });
+    };
+
+    /**
+     * Update to the previous instruction in the instructions list.
+     * @return {Promise} A promise which resolves when the instruction is updated.
+     * @private
+     */
+    var _onPrevInstruction = function () {
+        return Applitools.prevInstruction()
+            .then(function () {
+                return _updateInstructionText();
+            });
+    };
+
+    /**
+     * Initializes the instructions panel's close button with the required listeners.
+     * @return {Promise} A promise which resolves to the "close instructions panel" element.
+     * @private
+     */
+    var _initCloseInstructionsPanel = function () {
+        var closeInstructionsPanelElement = _getCloseInstructionsPanelElement();
+        closeInstructionsPanelElement.addEventListener('click', _onCloseInstructionsPanel);
+        return RSVP.resolve(closeInstructionsPanelElement);
+    };
+
+    /**
+     * Initializes the instructions panel's next instruction button with the required listeners.
+     * @return {Promise} A promise which resolves to the "next instruction" element.
+     * @private
+     */
+    var _initNextInstructionButton = function () {
+        var nextInstructionButtonElement = _getNextInstructionButtonElement();
+        nextInstructionButtonElement.addEventListener('click', _onNextInstruction);
+        return RSVP.resolve(nextInstructionButtonElement);
+    };
+
+    /**
+     * Initializes the instructions panel's next instruction button with the required listeners.
+     * @return {Promise} A promise which resolves to the "next instruction" element.
+     * @private
+     */
+    var _initPrevInstructionButton = function () {
+        var prevInstructionButtonElement = _getPrevInstructionButtonElement();
+        prevInstructionButtonElement.addEventListener('click', _onPrevInstruction);
+        return RSVP.resolve(prevInstructionButtonElement);
+    };
+
+    /**
+     * Initializes the elements on the instructions panel.
+     * @return {Promise} A promise which resolves when the instructions panel's elements are initialized.
+     * @private
+     */
+    var _initInstructionsPanel = function () {
+
+
+        return _initInstructionsLoadButton()
+            .then(function () {
+                return _initCloseInstructionsPanel();
+            }).then(function () {
+                return _initNextInstructionButton();
+            }).then(function () {
+                return _initPrevInstructionButton();
+            }).then(function () {
+                return Applitools.getCurrentInstructionIndex();
+            }).then(function (currentInstructionIndex) {
+                // If there's no current instruction, then we don't show the instruction
+                if (currentInstructionIndex === undefined) {
+                    return _showInstructionsPanel(false);
+                }
+
+                return _updateInstructionText().then(function () {
+                    _showInstructionsPanel(true)
+                });
+            });
+    };
+
+    /**
+     * Initializes the elements on the batch panel.
+     * @return {Promise} A promise which resolves when all the batch panel's elements are initialized.
      * @private
      */
     var _initBatchPanel = function () {
@@ -728,6 +951,8 @@
                 return _initBatchName();
             }).then(function () {
                 return _initResetBatchId();
+            }).then(function () {
+                return _initInstructionsPanel();
             }).then(function () {
                 return _showBatchPanel(shouldUseBatch);
             });
