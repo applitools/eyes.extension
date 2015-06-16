@@ -804,7 +804,15 @@
 
             var reader = new FileReader();
             reader.onload = function (e) {
-                var instructions = e.target.result.split("\n");
+                // "potential" since lines might be empty
+                var potentialInstructions = e.target.result.split("\n");
+                var instructions = [];
+                for (var i = 0; i < potentialInstructions.length; ++i) {
+                    var currentInstruction = potentialInstructions[i].trim();
+                    if (currentInstruction !== '') {
+                       instructions.push(currentInstruction)
+                    }
+                }
                 // We reset the value of the load button so that we can re-open the same file is needed.
                 _getInstructionLoadButtonElement().value = '';
                 return Applitools.setInstructions(instructions)
@@ -842,7 +850,7 @@
      * @private
      */
     var _onCloseInstructionsPanel = function () {
-        return Applitools.resetInstructions()
+        return Applitools.setInstructions(undefined)
             .then(function () {
                 return _showInstructionsPanel(false);
             });

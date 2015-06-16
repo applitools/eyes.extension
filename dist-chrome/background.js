@@ -73,20 +73,19 @@ window.Applitools = (function () {
 
     /**
      * Sets test instructions.
-     * @param {Array} instructions A list of instructions for the test.
+     * @param {Array|undefined} instructions A list of instructions for the test, or undefined to reset the instructions
+     *                                      list.
+     * @return {Promise} A promise which resolves when setting the instructions is finished.
      */
     Applitools_.setInstructions = function (instructions) {
-        Applitools_.currentState.instructions = instructions;
-        Applitools_.currentState.currentInstructionIndex = 0;
-        return RSVP.resolve();
-    };
-
-    /**
-     * Removes the instructions.
-     */
-    Applitools_.resetInstructions = function () {
-        Applitools_.currentState.instructions = [];
-        Applitools_.currentState.currentInstructionIndex = undefined;
+        if (instructions && instructions.length) {
+            Applitools_.currentState.instructions = instructions;
+            Applitools_.currentState.currentInstructionIndex = 0;
+        } else {
+            // We received undefined/invalid instructions list, in which case we reset it.
+            Applitools_.currentState.instructions = [];
+            Applitools_.currentState.currentInstructionIndex = undefined;
+        }
         return RSVP.resolve();
     };
 
