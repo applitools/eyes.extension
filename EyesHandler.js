@@ -14,8 +14,8 @@
     var EyesHandler = {};
 
     EyesHandler.testImage = function (testParams, image, tag) {
-        return ConfigurationStore.getEyesServerUrl().then(function (eyesServerUrl) {
-            var eyes = new Eyes(eyesServerUrl);
+        return ConfigurationStore.getEyesApiServerUrl().then(function (eyesApiServerUrl) {
+            var eyes = new Eyes(eyesApiServerUrl);
             var apiKey;
             eyes.setLogHandler(new ConsoleLogHandler(true));
             return ConfigurationStore.getApiKey().then(function (apiKey_) {
@@ -25,14 +25,13 @@
                 if (testParams.batch && testParams.batch.id) {
                     eyes.setBatch(testParams.batch.name, testParams.batch.id);
                 }
-                eyes.setAgentId('eyes.extension.chrome/1.18');
+                eyes.setAgentId('eyes.extension.chrome/1.20');
                 // TODO Daniel - hack, to use layout2 instead of layout as an experiment.
                 if (testParams.matchLevel === 'Layout') {
                     eyes.setMatchLevel(MatchLevel.Layout2);
                 } else {
                     eyes.setMatchLevel(testParams.matchLevel);
                 }
-                //eyes.setMatchLevel(testParams.matchLevel);
                 eyes.setBranchName(testParams.branchName);
                 eyes.setParentBranchName(testParams.parentBranchName);
                 eyes.setOs(testParams.os);

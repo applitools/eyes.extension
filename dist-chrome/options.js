@@ -170,6 +170,57 @@
     };
 
     /**
+     * Sets the Eyes API server URL.
+     * @return {Promise} A promise which resolves when the save is finished.
+     * @private
+     */
+    var _saveEyesApiServerUrl = function () {
+        var eyesApiServerUrl = document.getElementById('eyesApiServerUrl').value;
+        return ConfigurationStore.setEyesApiServerUrl(eyesApiServerUrl);
+    };
+
+    /**
+     * Loads the saved value to the input element.
+     * @return {Promise} A promise which resolves to the element when the text input is set.
+     * @private
+     */
+    var _restoreEyesApiServer = function () {
+        var eyesApiServerUrlElement = document.getElementById('eyesApiServerUrl');
+        return ConfigurationStore.getEyesApiServerUrl().then(function (eyesApiServerUrl) {
+            eyesApiServerUrlElement.value = eyesApiServerUrl;
+            return RSVP.resolve(eyesApiServerUrlElement);
+        });
+    };
+
+    /**
+     * Loads the required value and sets required listeners.
+     * @return {Promise} A promise which resolves to the element when the initialization is finished.
+     * @private
+     */
+    var _initEyesApiServerUrl = function () {
+        return _restoreEyesApiServer().then(function (element) {
+            // Registering for the change event so we'll know when to update the element.
+            element.addEventListener('change', _saveEyesApiServerUrl);
+            return RSVP.resolve(element);
+        });
+    };
+
+    /**
+     * Sets the required listeners on the restoreDefaultUrl button.
+     * @return {Promise} A promise which resolves when finished setting the listener.
+     * @private
+     */
+    var _initRestoreDefaultApiUrlButton = function () {
+        var restoreDefaultApiUrlButton = document.getElementById('restoreDefaultApiUrl');
+        restoreDefaultApiUrlButton.addEventListener('click', function () {
+            return ConfigurationStore.setEyesApiServerUrl(undefined).then(function () {
+                return _restoreEyesApiServer();
+            });
+        });
+        return RSVP.resolve();
+    };
+
+    /**
      * Saves the page part wait time.
      * @return {Promise} A promise which resolves when the save is finished.
      * @private
@@ -245,7 +296,8 @@
     var _initPage = function () {
         // We're done when ALL options are loaded.
         return RSVP.all([Applitools.optionsOpened(), _initNewTabForResults(), _initTakeFullPageScreenshot(),
-            _initRemoveScrollBars(), _initEyesServerUrl(), _initRestoreDefaultUrlButton(), _initPagePartWaitTime(),
+            _initRemoveScrollBars(), _initEyesServerUrl(), _initRestoreDefaultUrlButton(),
+            _initEyesApiServerUrl(), _initRestoreDefaultApiUrlButton(), _initPagePartWaitTime(),
             _initRestoreDefaultPagePartWaitTimeButton(), _restoreLogs()]);
     };
 

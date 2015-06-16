@@ -50,6 +50,20 @@ $OPTION_BORDER_COLOR: #b4b4b4;
   margin-left: 114px;
 }
 
+#eyesApiServerUrl {
+  font-size: 12px;
+  width: 289px;
+  height: 34px;
+  margin-left: 19px;
+  text-indent: 5px;
+}
+
+#restoreDefaultApiUrl {
+  @include classicButton;
+  margin-top: 7px;
+  margin-left: 146px;
+}
+
 #pagePartWaitTime {
   font-size: 12px;
   width: 297px;

@@ -689,54 +689,59 @@ window.Applitools = (function () {
      */
     Applitools_._handleTestResults = function (testResults, testParams, testWindow) {
         var deferred = RSVP.defer();
+        var resultsUrl;
+        ConfigurationStore.getEyesServerUrl().then(function (resultsServer) {
+            // We want to use the results server as the prefix for the url
+            var urlSessionPart = testResults.url.split("/app")[1];
+            resultsUrl = resultsServer + "/app" + urlSessionPart;
+            ConfigurationStore.getNewTabForResults()
+                .then(function (shouldOpen) {
+                    if (shouldOpen) {
+                        var baselineId = JSON.stringify(testParams),
+                            tabId = _resultTabs[baselineId];
 
-        ConfigurationStore.getNewTabForResults()
-            .then(function (shouldOpen) {
-                if (shouldOpen) {
-                    var baselineId = JSON.stringify(testParams),
-                        tabId = _resultTabs[baselineId];
+                        // FIXME Daniel - replace chrome.tabs.create with ChromeUtils.createTab
 
-                    // FIXME Daniel - replace chrome.tabs.create with ChromeUtils.createTab
-
-                    if (tabId) {
-                        // This baseline already had a result tab. If it's open
-                        // we will reuse it
-                        chrome.tabs.update(tabId, {url: testResults.url},
-                            function (tab) {
-                                if (tab) {
-                                    deferred.resolve(tab);
-                                } else {
-                                    // If the user closed the tab
-                                    chrome.tabs.create({
-                                        windowId: testWindow.id,
-                                        url: testResults.url,
-                                        active: false
-                                    }, function (tab) {
-                                        if (tab) {
-                                            _resultTabs[baselineId] = tab.id;
-                                        }
+                        if (tabId) {
+                            // This baseline already had a result tab. If it's open
+                            // we will reuse it
+                            chrome.tabs.update(tabId, {url: resultsUrl},
+                                function (tab) {
+                                    if (tab) {
                                         deferred.resolve(tab);
-                                    });
+                                    } else {
+                                        // If the user closed the tab
+                                        chrome.tabs.create({
+                                            windowId: testWindow.id,
+                                            url: resultsUrl,
+                                            active: false
+                                        }, function (tab) {
+                                            if (tab) {
+                                                _resultTabs[baselineId] = tab.id;
+                                            }
+                                            deferred.resolve(tab);
+                                        });
+                                    }
+                                });
+                        } else {
+                            // If there was no previous tab open for the results of the test.
+                            chrome.tabs.create({
+                                windowId: testWindow.id,
+                                url: resultsUrl,
+                                active: false
+                            }, function (tab) {
+                                if (tab) {
+                                    _resultTabs[baselineId] = tab.id;
                                 }
+                                deferred.resolve(tab);
                             });
+                        }
                     } else {
-                        // If there was no previous tab open for the results of the test.
-                        chrome.tabs.create({
-                            windowId: testWindow.id,
-                            url: testResults.url,
-                            active: false
-                        }, function (tab) {
-                            if (tab) {
-                                _resultTabs[baselineId] = tab.id;
-                            }
-                            deferred.resolve(tab);
-                        });
+                        // No need to open a tab for showing the results.
+                        deferred.resolve(null);
                     }
-                } else {
-                    // No need to open a tab for showing the results.
-                    deferred.resolve(null);
-                }
-            });
+                });
+        });
         return deferred.promise;
     };
 
