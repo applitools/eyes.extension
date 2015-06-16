@@ -742,7 +742,8 @@ window.Applitools = (function () {
 
     /**
      * Tests the current tab.
-     * @return {Promise} A promise which resolves to the test's results, or rejects if an error occurred.
+     * @return {Object} An object containing 3 promises: {@code screenshotTaken}, {@code testFinished},
+ *              {@code resultsHandled}. If an error occurred, the function rejects.
      */
     Applitools_.runSingleTest = function () {
         var preparedWindowData, currentTab, testParams, appName, testName;
@@ -771,22 +772,29 @@ window.Applitools = (function () {
             var taskScheduler = new JSUtils.SequentialTaskRunner();
             return Applitools_._runTest(taskScheduler, preparedWindowData.updated.tab, testParams);
         }).then(function (testPromises) {
-            var tabRestoredPromise = testPromises.screenshotTaken.then(function () {
-                return Applitools_._restoreTab(preparedWindowData.updated.tab,
-                    preparedWindowData.updated.isNewWindowCreated,
-                    preparedWindowData.updated.window,
-                    preparedWindowData.original.window,
-                    preparedWindowData.original.tabIndex,
-                    preparedWindowData.original.windowSize);
-            });
-            return RSVP.all([tabRestoredPromise, testPromises.testFinished]);
-        }).then(function (results) {
-            // TODO Daniel - find a better place to delete the tab
-            // Remove the current tab from our active tab list
-            delete _testTabs[currentTab.id];
+            var tabRestoredPromise =
+                testPromises.screenshotTaken.then(function () {
+                    // If we're in "steps" mode, we move on to the next instruction.
+                    return Applitools_.nextInstruction();
+                }).then(function () {
+                    return Applitools_._restoreTab(preparedWindowData.updated.tab,
+                        preparedWindowData.updated.isNewWindowCreated,
+                        preparedWindowData.updated.window,
+                        preparedWindowData.original.window,
+                        preparedWindowData.original.tabIndex,
+                        preparedWindowData.original.windowSize);
+                });
+            // Adding another promise for when the test results is handled.
+            testPromises.resultsHandled =
+                RSVP.all([tabRestoredPromise, testPromises.testFinished]).then(function (results) {
+                    // TODO Daniel - find a better place to delete the tab
+                    // Remove the current tab from our active tab list
+                    delete _testTabs[currentTab.id];
 
-            var testResults = results[1];
-            return Applitools_._handleTestResults(testResults, testParams, preparedWindowData.original.window);
+                    var testResults = results[1];
+                    return Applitools_._handleTestResults(testResults, testParams, preparedWindowData.original.window);
+                });
+            return testPromises;
         }).catch(function () {
             return Applitools_._onError('Failed to run test', appName, testName);
         });
