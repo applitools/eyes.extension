@@ -478,18 +478,20 @@ window.Applitools = (function () {
                             appName = appName || defaultAppName;
                             if (forceDefaultTestName) {
                                 testName = defaultTestName;
-                            } else if (Applitools_.currentState.currentInstructionIndex) {
+                            } else if (Applitools_.currentState.currentInstructionIndex !== undefined) {
                                 var ix = Applitools_.currentState.currentInstructionIndex;
                                 testName = Applitools_.currentState.instructions[ix];
+
                             } else {
                                 testName = testName || defaultTestName;
+
                             }
                             return RSVP.resolve({appName: appName, testName: testName});
                         });
                     });
                 } else { // Use the domain as the app name, and the path as the test name.
                     var testName = defaultTestName;
-                    if (Applitools_.currentState.currentInstructionIndex) {
+                    if (Applitools_.currentState.currentInstructionIndex !== undefined) {
                         var ix = Applitools_.currentState.currentInstructionIndex;
                         testName = Applitools_.currentState.instructions[ix];
                     }
@@ -621,6 +623,11 @@ window.Applitools = (function () {
         var forceFullPageScreenshot, batchName, shouldUseBatch;
 
         var title = tabToTest.title;
+        // When working with a steps file, the tag name is the same as the test name (i.e., the current step from
+        // the file).
+        if (Applitools_.currentState.currentInstructionIndex !== undefined) {
+            title = testParams.testName;
+        }
 
         Applitools_._testStarted(tabToTest.id, testParams.appName, testParams.testName).then(function () {
             // Checking whether or not we need a full page screenshot, as well as setting batch if necessary.
