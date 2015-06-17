@@ -360,6 +360,35 @@
         return deferred.promise;
     };
 
+    /**
+     * Get the document's documentElement "overflow" value.
+     * @param {number} tabId The ID of the tab for which overflow style should be set.
+     * @return {Promise|*} A promise which resolves to the overflow value of the document.
+     */
+    WindowHandler.getOverflow = function (tabId) {
+        var deferred = RSVP.defer();
+        //noinspection JSLint
+        ChromeUtils.executeScript(tabId, 'document.documentElement.style.overflow')
+            .then(function (overflowValue) {
+                deferred.resolve(overflowValue[0]);
+            });
+
+        return deferred.promise;
+    };
+
+
+    /**
+     * Removes the scrollbars from the document.
+     * @param {number} tabId The ID of the tab for which scrollbars should be removed.
+     * @param {number|undefined} stabilizationTimeMs (optional) The amount of time in milliseconds after removing the
+     *                                                  scrollbars to give the browser time to finish the rendering.
+     * @return {Promise|*} A promise which resolves to the original overflow of the document.
+     */
+    WindowHandler.removeScrollBars = function (tabId, stabilizationTimeMs) {
+        return WindowHandler.setOverflow(tabId, "hidden", stabilizationTimeMs).then(function (originalOverflow) {
+            return originalOverflow || '';
+        });
+    };
 
 
     /**
@@ -650,11 +679,11 @@
             }
         }).then(function () {
             if (removeScrollBars) {
-                return WindowHandler.setOverflow(tabId, "hidden", 150).then(function (originalOverflow_) {
-                    originalOverflow = originalOverflow_ ? originalOverflow_ : '';
-                });
+                return WindowHandler.removeScrollBars(tabId, 150);
             }
-        }).then(function () {
+            return undefined;
+        }).then(function (originalOverflow_) {
+            originalOverflow = originalOverflow_;
             return WindowHandler.getEntirePageSize(tab);
         }).then(function (entirePageSize_) {
                 entirePageSize = entirePageSize_;
