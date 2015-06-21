@@ -28,14 +28,15 @@ window.Applitools = (function () {
 
     var Applitools_ = {};
 
+    var _stepsHandler;
+
     Applitools_.currentState = {
         screenshotTakenMutex: {},
         batchId: undefined,
         runningTestsCount: 0,
         logs: [],
         newErrorsExist: false,  // errors were encountered since the last time the extension menu was opened
-        unreadErrorsExist: false, // errors were encountered and not read
-        stepsHandler: undefined
+        unreadErrorsExist: false // errors were encountered and not read
     };
 
     chrome.browserAction.setTitle({title: _DEFAULT_BROWSER_ACTION_TOOLTIP});
@@ -79,7 +80,7 @@ window.Applitools = (function () {
     Applitools_.createStepListFromString = function (s) {
         return new RSVP.Promise(function (resolve) {
             return StepsHandler.createFromString(s).then(function (stepsHandler) {
-                Applitools_.currentState.stepsHandler = stepsHandler;
+                _stepsHandler = stepsHandler;
                 resolve();
             }.bind(this));
         }.bind(this));
@@ -89,7 +90,7 @@ window.Applitools = (function () {
      * @returns {Promise} A promise which resolves when removing the steps is done.
      */
     Applitools_.removeSteps = function () {
-        Applitools_.currentState.stepsHandler = undefined;
+        _stepsHandler = undefined;
         return RSVP.resolve();
     };
 
@@ -98,8 +99,8 @@ window.Applitools = (function () {
      *                     available.
      */
     Applitools_.getStepsCount = function () {
-        if (Applitools_.currentState.stepsHandler) {
-            return Applitools_.currentState.stepsHandler.getStepsCount();
+        if (_stepsHandler) {
+            return _stepsHandler.getStepsCount();
         }
 
         return RSVP.resolve(undefined);
@@ -110,8 +111,8 @@ window.Applitools = (function () {
      *                    are available.
      */
     Applitools_.getCurrentStepIndex = function () {
-        if (Applitools_.currentState.stepsHandler) {
-            return Applitools_.currentState.stepsHandler.getCurrentStepIndex();
+        if (_stepsHandler) {
+            return _stepsHandler.getCurrentStepIndex();
         }
 
         return RSVP.resolve(undefined);
@@ -121,8 +122,8 @@ window.Applitools = (function () {
      * @returns {Promise} A promise which resolves to the current step, or {@code undefined} if no steps are available.
      */
     Applitools_.getCurrentStep = function () {
-        if (Applitools_.currentState.stepsHandler) {
-            return Applitools_.currentState.stepsHandler.getCurrentStep();
+        if (_stepsHandler) {
+            return _stepsHandler.getCurrentStep();
         }
 
         return RSVP.resolve(undefined);
@@ -134,8 +135,8 @@ window.Applitools = (function () {
      *                    or to {@code undefined} if there was an error.
      */
     Applitools_.moveToNextStep = function () {
-        if (Applitools_.currentState.stepsHandler) {
-            return Applitools_.currentState.stepsHandler.moveToNextStep();
+        if (_stepsHandler) {
+            return _stepsHandler.moveToNextStep();
         }
         return RSVP.resolve(undefined);
     };
@@ -146,8 +147,8 @@ window.Applitools = (function () {
      *                    or to {@code undefined} if there was an error.
      */
     Applitools_.moveToPrevStep = function () {
-        if (Applitools_.currentState.stepsHandler) {
-            return Applitools_.currentState.stepsHandler.moveToPrevStep();
+        if (_stepsHandler) {
+            return _stepsHandler.moveToPrevStep();
         }
         return RSVP.resolve(undefined);
     };
@@ -159,8 +160,8 @@ window.Applitools = (function () {
      *                    there was an error.
      */
     Applitools_.moveToStep = function (stepIndex) {
-        if (Applitools_.currentState.stepsHandler) {
-            return Applitools_.currentState.stepsHandler.moveToStep(stepIndex);
+        if (_stepsHandler) {
+            return _stepsHandler.moveToStep(stepIndex);
         }
         return RSVP.resolve(undefined);
     };
@@ -481,8 +482,7 @@ window.Applitools = (function () {
             var testParamsPromise;
             var defaultTestName = Applitools_._getDefaultTestName(currentUrl);
 
-            if (baselineSelectionId === 'stepUrlSelection' &&
-                    Applitools_.currentState.stepsHandler === undefined) {
+            if (baselineSelectionId === 'stepUrlSelection' && _stepsHandler === undefined) {
                 testParamsPromise = ConfigurationStore.getBaselineStepUrl().then(function (baselineStepUrl) {
                     var baselineStepUrlParams = Applitools_.extractStepUrlParameters(baselineStepUrl);
                     if (!baselineStepUrlParams) {
@@ -518,8 +518,8 @@ window.Applitools = (function () {
                             var testNamePromise;
                             if (forceDefaultTestName) {
                                 testNamePromise = RSVP.resolve(defaultTestName);
-                            } else if (shouldUseBatch && Applitools_.currentState.stepsHandler !== undefined) {
-                                testNamePromise = Applitools_.currentState.stepsHandler.getCurrentStep();
+                            } else if (shouldUseBatch && _stepsHandler !== undefined) {
+                                testNamePromise = _stepsHandler.getCurrentStep();
                             } else {
                                 testNamePromise = RSVP.resolve(baselineTestName || defaultTestName);
                             }
@@ -530,8 +530,8 @@ window.Applitools = (function () {
                     });
                 } else { // Use the domain as the app name, and the path as the test name.
                     var testNamePromise;
-                    if (shouldUseBatch && Applitools_.currentState.stepsHandler !== undefined) {
-                        testNamePromise = Applitools_.currentState.stepsHandler.getCurrentStep();
+                    if (shouldUseBatch && _stepsHandler !== undefined) {
+                        testNamePromise = _stepsHandler.getCurrentStep();
                     } else {
                         testNamePromise = RSVP.resolve(defaultTestName);
                     }
@@ -690,7 +690,7 @@ window.Applitools = (function () {
 
                 // When working with a steps file, the tag name is the same as the test name (i.e., the current step
                 // from the file). Also, we only want to use that when the batch panel is open.
-                if (Applitools_.currentState.stepsHandler !== undefined) {
+                if (_stepsHandler !== undefined) {
                     title = testParams.testName;
                 }
             }
