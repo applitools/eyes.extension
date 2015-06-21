@@ -358,36 +358,36 @@ $EXTENSION_SIZE_PLUS_ONE: 53px;
   }
 }
 
-$INSTRUCTIONS_LOAD_WIDTH: 40px;
-$INSTRUCTIONS_LOAD_PADDING: 5px;
+$STEPS_LOAD_WIDTH: 40px;
+$STEPS_LOAD_PADDING: 5px;
 
-#instructionsLoadWrapper {
+#stepsLoadWrapper {
   display: inline-block;
   position: relative;
   top: 10px;
-  width: $INSTRUCTIONS_LOAD_WIDTH;
+  width: $STEPS_LOAD_WIDTH;
   overflow: hidden;
   border: 1px solid #a8a8a8;
   border-radius: 4px;
-  padding: $INSTRUCTIONS_LOAD_PADDING;
+  padding: $STEPS_LOAD_PADDING;
 }
 
-#instructionsLoadButton {
+#stepsLoadButton {
   position: absolute;
   top: 0;
   right: 0;
   margin: 0;
-  padding: $INSTRUCTIONS_LOAD_PADDING;
+  padding: $STEPS_LOAD_PADDING;
   opacity: 0;
-  width: $INSTRUCTIONS_LOAD_WIDTH;
+  width: $STEPS_LOAD_WIDTH;
 }
 
-#instructionsPanel {
+#stepsPanel {
   margin-bottom: 6px;
   -webkit-user-select: none;
 }
 
-#instructionText {
+#stepText {
   padding: 1px;
   margin: 0 15px;
   height: 21px;
@@ -400,7 +400,7 @@ $INSTRUCTIONS_LOAD_PADDING: 5px;
   border: 0;
 }
 
-.instructionsNavigationButton {
+.stepsNavigationButton {
   margin-right: 15px;
   width: 17px;
   height: 17px;
@@ -411,7 +411,7 @@ $INSTRUCTIONS_LOAD_PADDING: 5px;
   left: 2px;
 }
 
-#nextInstruction {
+#nextStep {
   //noinspection CssUnknownTarget
   background: url('../images/arrow_right_regular.png') no-repeat;
 
@@ -426,7 +426,7 @@ $INSTRUCTIONS_LOAD_PADDING: 5px;
   }
 }
 
-#prevInstruction {
+#prevStep {
   //noinspection CssUnknownTarget
   background: url('../images/arrow_left_regular.png') no-repeat;
 
@@ -441,7 +441,7 @@ $INSTRUCTIONS_LOAD_PADDING: 5px;
   }
 }
 
-#closeInstructionsPanel {
+#closeStepsPanel {
   //noinspection CssUnknownTarget
   background: url('../images/xclose_regular.png') no-repeat;
 

@@ -11,6 +11,7 @@ window.Applitools = (function () {
         JSUtils = require('./../JSUtils.js'),
         ConfigurationStore = require('./../ConfigurationStore.js'),
         WindowHandler = require('./WindowHandler.js'),
+        StepsHandler = require('../StepsHandler.js'),
         RSVP = require('rsvp');
 
     var _DEFAULT_BROWSER_ACTION_TOOLTIP = "Applitools Eyes. No tests are currently running.";
@@ -34,8 +35,7 @@ window.Applitools = (function () {
         logs: [],
         newErrorsExist: false,  // errors were encountered since the last time the extension menu was opened
         unreadErrorsExist: false, // errors were encountered and not read
-        instructions: [],
-        currentInstructionIndex: undefined
+        stepsHandler: undefined
     };
 
     chrome.browserAction.setTitle({title: _DEFAULT_BROWSER_ACTION_TOOLTIP});
@@ -72,71 +72,106 @@ window.Applitools = (function () {
     });
 
     /**
-     * Sets test instructions.
-     * @param {Array|undefined} instructions A list of instructions for the test, or undefined to reset the instructions
-     *                                      list.
-     * @return {Promise} A promise which resolves when setting the instructions is finished.
+     * Create a step list from a given string
+     * @param {string} s The string from which to create the steps list. Steps are separated by the new-line character.
+     * @returns {Promise} A promise which resolves when the steps are loaded.
      */
-    Applitools_.setInstructions = function (instructions) {
-        if (instructions && instructions.length) {
-            Applitools_.currentState.instructions = instructions;
-            Applitools_.currentState.currentInstructionIndex = 0;
-        } else {
-            // We received undefined/invalid instructions list, in which case we reset it.
-            Applitools_.currentState.instructions = [];
-            Applitools_.currentState.currentInstructionIndex = undefined;
-        }
+    Applitools_.createStepListFromString = function (s) {
+        return new RSVP.Promise(function (resolve) {
+            return StepsHandler.createFromString(s).then(function (stepsHandler) {
+                Applitools_.currentState.stepsHandler = stepsHandler;
+                resolve();
+            }.bind(this));
+        }.bind(this));
+    };
+
+    /**
+     * @returns {Promise} A promise which resolves when removing the steps is done.
+     */
+    Applitools_.removeSteps = function () {
+        Applitools_.currentState.stepsHandler = undefined;
         return RSVP.resolve();
     };
 
     /**
-     * @returns {number} The number of instructions.
+     * @returns {Promise} A promise which resolves to the steps count, or {@code undefined} if there are no steps
+     *                     available.
      */
-    Applitools_.getInstructionsCount = function () {
-        return RSVP.resolve(Applitools_.currentState.instructions.length);
-    };
-
-    /**
-     * @returns {number} The index of the current instruction.
-     */
-    Applitools_.getCurrentInstructionIndex = function () {
-        return RSVP.resolve(Applitools_.currentState.currentInstructionIndex);
-    };
-
-    /**
-     * @returns {number} Set the current instruction to be the next instruction.
-     */
-    Applitools_.nextInstruction = function () {
-        if (Applitools_.currentState.currentInstructionIndex !== undefined &&
-                Applitools_.currentState.currentInstructionIndex >= 0 &&
-                Applitools_.currentState.currentInstructionIndex < (Applitools_.currentState.instructions.length - 1)) {
-            ++Applitools_.currentState.currentInstructionIndex;
-        }
-        return RSVP.resolve(Applitools_.currentState.currentInstructionIndex);
-    };
-
-    /**
-     * @returns {number} Set the current instruction to be the next instruction.
-     */
-    Applitools_.prevInstruction = function () {
-        if (Applitools_.currentState.currentInstructionIndex !== undefined &&
-                Applitools_.currentState.currentInstructionIndex > 0) {
-            --Applitools_.currentState.currentInstructionIndex;
-        }
-        return RSVP.resolve(Applitools_.currentState.currentInstructionIndex);
-    };
-
-    /**
-     * Get the instruction in the given index.
-     * @param {number} index The index of the instruction to retrieve.
-     * @returns {String|undefined} The instruction in the given index, or undefined if the index is out of bounds.
-     */
-    Applitools_.getInstruction = function (index) {
-        if (index < 0 || index >= Applitools_.getInstructionsCount()) {
-            return undefined;
+    Applitools_.getStepsCount = function () {
+        if (Applitools_.currentState.stepsHandler) {
+            return Applitools_.currentState.stepsHandler.getStepsCount();
         }
 
-        return Applitools_.currentState.instructions[index];
+        return RSVP.resolve(undefined);
+    };
+
+    /**
+     * @returns {Promise} A promise which resolves to the index of the current step, or {@code undefined} if no steps
+     *                    are available.
+     */
+    Applitools_.getCurrentStepIndex = function () {
+        if (Applitools_.currentState.stepsHandler) {
+            return Applitools_.currentState.stepsHandler.getCurrentStepIndex();
+        }
+
+        return RSVP.resolve(undefined);
+    };
+
+    /**
+     * @returns {Promise} A promise which resolves to the current step, or {@code undefined} if no steps are available.
+     */
+    Applitools_.getCurrentStep = function () {
+        if (Applitools_.currentState.stepsHandler) {
+            return Applitools_.currentState.stepsHandler.getCurrentStep();
+        }
+
+        return RSVP.resolve(undefined);
+    };
+
+    /**
+     * Move to the next step on the steps list.
+     * @returns {Promise} A promise which resolves to the next step, or to the current step if it is the last one,
+     *                    or to {@code undefined} if there was an error.
+     */
+    Applitools_.moveToNextStep = function () {
+        if (Applitools_.currentState.stepsHandler) {
+            return Applitools_.currentState.stepsHandler.moveToNextStep();
+        }
+        return RSVP.resolve(undefined);
+    };
+
+    /**
+     * Move to the previous step on the steps list.
+     * @returns {Promise} A promise which resolves to the previous step, or to the current step if it is the first one,
+     *                    or to {@code undefined} if there was an error.
+     */
+    Applitools_.moveToPrevStep = function () {
+        if (Applitools_.currentState.stepsHandler) {
+            return Applitools_.currentState.stepsHandler.moveToPrevStep();
+        }
+        return RSVP.resolve(undefined);
+    };
+
+    /**
+     * Move to the step with the given index.
+     * @param {number} stepIndex The index of the step to move to.
+     * @returns {Promise} A promise which resolves to the step with the given index, or to {@code undefined} if
+     *                    there was an error.
+     */
+    Applitools_.moveToStep = function (stepIndex) {
+        if (Applitools_.currentState.stepsHandler) {
+            return Applitools_.currentState.stepsHandler.moveToStep(stepIndex);
+        }
+        return RSVP.resolve(undefined);
+    };
+
+    /**
+     * Get the current batch ID.
+     * @return {string|undefined} The current batch ID, or undefined if no batchID is available.
+     * @private
+     */
+    Applitools_.getCurrentBatchId = function () {
+        return Applitools_.currentState.batchId;
     };
 
     /**
@@ -431,7 +466,7 @@ window.Applitools = (function () {
      * @private
      */
     Applitools_._getTestParameters = function (currentUrl, forceDefaultTestName) {
-        var matchLevel, baselineSelectionId;
+        var matchLevel, baselineSelectionId, shouldUseBatch;
 
         return ConfigurationStore.getMatchLevel().then(function (matchLevel_) {
             matchLevel = matchLevel_;
@@ -439,11 +474,15 @@ window.Applitools = (function () {
         }).then(function (baselineSelectionId_) {
             baselineSelectionId = baselineSelectionId_;
         }).then(function () {
+            return ConfigurationStore.getShouldUseBatch();
+        }).then(function (shouldUseBatch_) {
+            shouldUseBatch = shouldUseBatch_;
+        }).then(function () {
             var testParamsPromise;
             var defaultTestName = Applitools_._getDefaultTestName(currentUrl);
 
             if (baselineSelectionId === 'stepUrlSelection' &&
-                    Applitools_.currentState.currentInstructionIndex === undefined) {
+                    Applitools_.currentState.stepsHandler === undefined) {
                 testParamsPromise = ConfigurationStore.getBaselineStepUrl().then(function (baselineStepUrl) {
                     var baselineStepUrlParams = Applitools_.extractStepUrlParameters(baselineStepUrl);
                     if (!baselineStepUrlParams) {
@@ -474,28 +513,32 @@ window.Applitools = (function () {
                 // If the user selected specific app and test names, we use them.
                 if (baselineSelectionId === 'userValuesSelection') {
                     testParamsPromise = ConfigurationStore.getBaselineAppName().then(function (appName) {
-                        return ConfigurationStore.getBaselineTestName().then(function (testName) {
+                        return ConfigurationStore.getBaselineTestName().then(function (baselineTestName) {
                             appName = appName || defaultAppName;
+                            var testNamePromise;
                             if (forceDefaultTestName) {
-                                testName = defaultTestName;
-                            } else if (Applitools_.currentState.currentInstructionIndex !== undefined) {
-                                var ix = Applitools_.currentState.currentInstructionIndex;
-                                testName = Applitools_.currentState.instructions[ix];
-
+                                testNamePromise = RSVP.resolve(defaultTestName);
+                            } else if (shouldUseBatch && Applitools_.currentState.stepsHandler !== undefined) {
+                                testNamePromise = Applitools_.currentState.stepsHandler.getCurrentStep();
                             } else {
-                                testName = testName || defaultTestName;
-
+                                testNamePromise = RSVP.resolve(baselineTestName || defaultTestName);
                             }
-                            return RSVP.resolve({appName: appName, testName: testName});
+                            return testNamePromise.then(function (testName) {
+                                return RSVP.resolve({appName: appName, testName: testName});
+                            });
                         });
                     });
                 } else { // Use the domain as the app name, and the path as the test name.
-                    var testName = defaultTestName;
-                    if (Applitools_.currentState.currentInstructionIndex !== undefined) {
-                        var ix = Applitools_.currentState.currentInstructionIndex;
-                        testName = Applitools_.currentState.instructions[ix];
+                    var testNamePromise;
+                    if (shouldUseBatch && Applitools_.currentState.stepsHandler !== undefined) {
+                        testNamePromise = Applitools_.currentState.stepsHandler.getCurrentStep();
+                    } else {
+                        testNamePromise = RSVP.resolve(defaultTestName);
                     }
-                    testParamsPromise = RSVP.resolve({appName: defaultAppName, testName: testName});
+
+                    testParamsPromise = testNamePromise.then(function (testName) {
+                        return RSVP.resolve({appName: defaultAppName, testName: testName});
+                    });
                 }
 
                 testParamsPromise = testParamsPromise.then(function (testParams) {
@@ -623,11 +666,7 @@ window.Applitools = (function () {
         var forceFullPageScreenshot, batchName, shouldUseBatch;
 
         var title = tabToTest.title;
-        // When working with a steps file, the tag name is the same as the test name (i.e., the current step from
-        // the file).
-        if (Applitools_.currentState.currentInstructionIndex !== undefined) {
-            title = testParams.testName;
-        }
+
 
         Applitools_._testStarted(tabToTest.id, testParams.appName, testParams.testName).then(function () {
             // Checking whether or not we need a full page screenshot, as well as setting batch if necessary.
@@ -648,6 +687,12 @@ window.Applitools = (function () {
                     name: batchName,
                     id: Applitools_.currentState.batchId
                 };
+
+                // When working with a steps file, the tag name is the same as the test name (i.e., the current step
+                // from the file). Also, we only want to use that when the batch panel is open.
+                if (Applitools_.currentState.stepsHandler !== undefined) {
+                    title = testParams.testName;
+                }
             }
         }).then(function () {
             return ConfigurationStore.getRemoveScrollBars();
@@ -751,10 +796,14 @@ window.Applitools = (function () {
  *              {@code resultsHandled}. If an error occurred, the function rejects.
      */
     Applitools_.runSingleTest = function () {
+        var shouldUseBatch;
         var preparedWindowData, currentTab, testParams, appName, testName;
         return ChromeUtils.getCurrentTab().then(function (currentTab_) {
             currentTab = currentTab_;
         }).then(function () {
+            return ConfigurationStore.getShouldUseBatch();
+        }).then(function (shouldUseBatch_) {
+            shouldUseBatch = shouldUseBatch_;
             return Applitools_._getTestParameters(currentTab.url, false);
         }).then(function (testParams_) {
             testParams = testParams_;
@@ -779,8 +828,10 @@ window.Applitools = (function () {
         }).then(function (testPromises) {
             var tabRestoredPromise =
                 testPromises.screenshotTaken.then(function () {
-                    // If we're in "steps" mode, we move on to the next instruction.
-                    return Applitools_.nextInstruction();
+                    // If we're in "steps" mode (and the batch panel is open), we move on to the next step.
+                    if (shouldUseBatch) {
+                        return Applitools_.moveToNextStep();
+                    }
                 }).then(function () {
                     return Applitools_._restoreTab(preparedWindowData.updated.tab,
                         preparedWindowData.updated.isNewWindowCreated,

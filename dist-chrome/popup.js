@@ -23,12 +23,12 @@
         _BASELINE_PANEL_ELEMENT_ID = "baselinePanel",
         _SHOW_BASELINE_ELEMENT_ID = "showBaseline",
         _BATCH_PANEL_ELEMENT_ID = "batchPanel",
-        _INSTRUCTIONS_PANEL_ELEMENT_ID = "instructionsPanel",
-        _INSTRUCTION_TEXT_ELEMENT_ID = "instructionText",
-        _PREV_INSTRUCTION_BUTTON_ELEMENT_ID = "prevInstruction",
-        _NEXT_INSTRUCTION_BUTTON_ELEMENT_ID = "nextInstruction",
-        _CLOSE_INSTRUCTIONS_PANEL_ELEMENT_ID = "closeInstructionsPanel",
-        _INSTRUCTIONS_LOAD_BUTTON_ELEMENT_ID = "instructionsLoadButton",
+        _STEPS_PANEL_ELEMENT_ID = "stepsPanel",
+        _STEP_TEXT_ELEMENT_ID = "stepText",
+        _PREV_STEP_BUTTON_ELEMENT_ID = "prevStep",
+        _NEXT_STEP_BUTTON_ELEMENT_ID = "nextStep",
+        _CLOSE_STEPS_PANEL_ELEMENT_ID = "closeStepsPanel",
+        _STEPS_LOAD_BUTTON_ELEMENT_ID = "stepsLoadButton",
         _SHOW_BATCH_PANEL_ELEMENT_ID = "showBatchPanel",
         _MATCH_LEVEL_ELEMENT_ID = "matchLevel",
         _VIEWPORT_SIZE_ELEMENT_ID = "viewportSize",
@@ -115,28 +115,28 @@
         return document.getElementById(_SHOW_BATCH_PANEL_ELEMENT_ID);
     };
 
-    var _getInstructionsPanelElement = function () {
-        return document.getElementById(_INSTRUCTIONS_PANEL_ELEMENT_ID);
+    var _getStepsPanelElement = function () {
+        return document.getElementById(_STEPS_PANEL_ELEMENT_ID);
     };
 
-    var _getInstructionTextElement = function () {
-        return document.getElementById(_INSTRUCTION_TEXT_ELEMENT_ID);
+    var _getStepTextElement = function () {
+        return document.getElementById(_STEP_TEXT_ELEMENT_ID);
     };
 
-    var _getCloseInstructionsPanelElement = function () {
-        return document.getElementById(_CLOSE_INSTRUCTIONS_PANEL_ELEMENT_ID);
+    var _getCloseStepsPanelElement = function () {
+        return document.getElementById(_CLOSE_STEPS_PANEL_ELEMENT_ID);
     };
 
-    var _getInstructionLoadButtonElement = function () {
-        return document.getElementById(_INSTRUCTIONS_LOAD_BUTTON_ELEMENT_ID);
+    var _getStepsLoadButtonElement = function () {
+        return document.getElementById(_STEPS_LOAD_BUTTON_ELEMENT_ID);
     };
 
-    var _getNextInstructionButtonElement = function () {
-        return document.getElementById(_NEXT_INSTRUCTION_BUTTON_ELEMENT_ID);
+    var _getNextStepButtonElement = function () {
+        return document.getElementById(_NEXT_STEP_BUTTON_ELEMENT_ID);
     };
 
-    var _getPrevInstructionButtonElement = function () {
-        return document.getElementById(_PREV_INSTRUCTION_BUTTON_ELEMENT_ID);
+    var _getPrevStepButtonElement = function () {
+        return document.getElementById(_PREV_STEP_BUTTON_ELEMENT_ID);
     };
 
     //noinspection JSUnusedLocalSymbols
@@ -301,8 +301,7 @@
         return ConfigurationStore.getShouldUseBatch().then(function (shouldUseBatch) {
             // Perform toggle.
             shouldUseBatch = !shouldUseBatch;
-            // Whenever we "open" the batch panel, we reset the batch ID.
-            if (shouldUseBatch) {
+            if (shouldUseBatch && Applitools.getCurrentBatchId() === undefined) {
                 _resetBatchId();
             }
             return _showBatchPanel(shouldUseBatch).then(function () {
@@ -324,21 +323,21 @@
     };
 
     /**
-     * Show/Hide the instructions panel.
+     * Show/Hide the steps panel.
      * @param shouldShow Whether to show or hide the panel.
-     * @return {Promise} A promise which resolves to the instructions panel element.
+     * @return {Promise} A promise which resolves to the steps panel element.
      * @private
      */
-    var _showInstructionsPanel = function (shouldShow) {
-        var instructionsPanel = _getInstructionsPanelElement();
+    var _showStepsPanel = function (shouldShow) {
+        var stepsPanel = _getStepsPanelElement();
 
         if (shouldShow) {
-            instructionsPanel.classList.remove(_NOT_DISPLAYED_CLASS);
+            stepsPanel.classList.remove(_NOT_DISPLAYED_CLASS);
         } else {
-            instructionsPanel.classList.add(_NOT_DISPLAYED_CLASS);
+            stepsPanel.classList.add(_NOT_DISPLAYED_CLASS);
         }
 
-        return RSVP.resolve(instructionsPanel);
+        return RSVP.resolve(stepsPanel);
     };
 
     /**
@@ -701,10 +700,14 @@
 
     /**
      * Sets a new batch ID in the background script state.
+     * @return {Promise} A propmise which is resolved when the batch ID is reset.
      * @private
      */
     var _resetBatchId = function () {
         Applitools.resetBatchId();
+        return Applitools.moveToStep(0).then(function () {
+            return _updateStepText();
+        });
     };
 
     /**
@@ -758,186 +761,179 @@
         return RSVP.resolve(newBatchIdElement);
     };
 
-    var _updateInstructionText = function () {
-
+    /**
+     * Update the text in the step text element to be that of the current step, if available.
+     * @returns {Promise} A promise which is resolved once the text is updated.
+     * @private
+     */
+    var _updateStepText = function () {
         return new RSVP.Promise(function (resolve, reject) {
-            var instructionsCount, currentInstructionIndex, instructionText;
-            Applitools.getInstructionsCount().then(function (instructionsCount_) {
-                instructionsCount = instructionsCount_;
+            var stepsCount, currentStepIndex, stepText;
+            Applitools.getStepsCount().then(function (stepsCount_) {
+                stepsCount = stepsCount_;
             }).then(function () {
-                return Applitools.getCurrentInstructionIndex()
-            }).then(function (currentInstructionIndex_) {
-                currentInstructionIndex = currentInstructionIndex_;
-            }).then(function () {
-                if (currentInstructionIndex === undefined) {
+                return Applitools.getCurrentStepIndex()
+            }).then(function (currentStepIndex_) {
+                currentStepIndex = currentStepIndex_;
+                if (currentStepIndex === undefined) {
                     return undefined;
                 }
-                return Applitools.getInstruction(currentInstructionIndex);
-            }).then(function (instructionText_) {
-                if (instructionText_ !== undefined) {
+                return Applitools.getCurrentStep();
+            }).then(function (stepText_) {
+                if (stepText_ !== undefined) {
                     // The "+1" is to show the index in a human format :)
-                    instructionText = (currentInstructionIndex+1) + "/" + instructionsCount + ": " + instructionText_;
+                    stepText = (currentStepIndex+1) + "/" + stepsCount + ": " + stepText_;
                 } else {
-                    instructionText = '';
+                    stepText = '';
                 }
-                // We have a current instruction, so we set it for the user to see
-                var instructionTextElement = _getInstructionTextElement();
-                instructionTextElement.value = instructionText;
-                instructionTextElement.title = instructionText;
+                // We have a current step, so we set it for the user to see
+                var stepTextElement = _getStepTextElement();
+                stepTextElement.value = stepText;
+                stepTextElement.title = stepText;
 
-                resolve(instructionText);
+                resolve(stepText);
             });
 
         });
     };
 
     /**
-     * Handle the instructions load event.
-     * @return A promise which is resolved to the array of instructions when the file is loaded.
+     * Handle the steps load event.
+     * @return A promise which resolves when the loading finished.
      * @private
      */
-    var _onInstructionsLoad = function () {
-        // Since this function is a direct event handler for a DOM element, "this" refers to the "File" element.
+    var _onStepsLoad = function () {
+        // Since this function is a direct event handler for a DOM element, "this" refers to the "File" input element.
         var fileInput = this;
-        return new RSVP.Promise(function (resolve, reject) {
-            var instructionsFile = fileInput.files[0];
+        return new RSVP.Promise(function (resolve) {
+            var stepsFile = fileInput.files[0];
 
             var reader = new FileReader();
             reader.onload = function (e) {
-                // "potential" since lines might be empty
-                var potentialInstructions = e.target.result.split("\n");
-                var instructions = [];
-                for (var i = 0; i < potentialInstructions.length; ++i) {
-                    var currentInstruction = potentialInstructions[i].trim();
-                    if (currentInstruction !== '') {
-                       instructions.push(currentInstruction)
-                    }
-                }
-                // We reset the value of the load button so that we can re-open the same file is needed.
-                _getInstructionLoadButtonElement().value = '';
-                return Applitools.setInstructions(instructions)
-                    .then(function () {
-                        return _updateInstructionText();
-                    }).then(function () {
-                        return _showInstructionsPanel(true);
-                    }).then(function () {
-                        _resetBatchId();
-                    }).then(function () {
-                        resolve(instructions);
-                    });
+                Applitools.createStepListFromString(e.target.result).then(function () {
+                    // We reset the value of the load button so that we can re-open the same file is needed.
+                    _getStepsLoadButtonElement().value = '';
+                    return _updateStepText()
+                        .then(function () {
+                            return _showStepsPanel(true);
+                        }).then(function () {
+                            _resetBatchId();
+                        }).then(function () {
+                            resolve();
+                        });
+                });
             };
 
             // FIXME add handling reader.onerror
 
-            reader.readAsText(instructionsFile);
+            reader.readAsText(stepsFile);
         });
     };
 
     /**
-     * Initializes the instructions panel's close button with the required listeners.=
-     * @return {Promise} A promise which resolves to the batchName element.
+     * Initializes the steps panel's close button with the required listeners.
+     * @return {Promise} A promise which resolves to the steps load button element.
      * @private
      */
-    var _initInstructionsLoadButton = function () {
-        var instructionsLoadButtonElement = _getInstructionLoadButtonElement();
-        instructionsLoadButtonElement.addEventListener('change', _onInstructionsLoad);
-        return RSVP.resolve(instructionsLoadButtonElement);
+    var _initStepsLoadButton = function () {
+        var stepsLoadButtonElement = _getStepsLoadButtonElement();
+        stepsLoadButtonElement.addEventListener('change', _onStepsLoad);
+        return RSVP.resolve(stepsLoadButtonElement);
     };
 
     /**
-     * Close the instructions panel and stop using instructions.
-     * @return {Promise} A promise which resolves when the instructions panel is closed.
+     * Close the steps panel and stop using steps.
+     * @return {Promise} A promise which resolves when the steps panel is closed.
      * @private
      */
-    var _onCloseInstructionsPanel = function () {
-        return Applitools.setInstructions(undefined)
-            .then(function () {
-                return _showInstructionsPanel(false);
+    var _onCloseStepsPanel = function () {
+        return Applitools.removeSteps().then(function () {
+                return _showStepsPanel(false);
             });
     };
 
     /**
-     * Update to the next instruction in the instructions list.
-     * @return {Promise} A promise which resolves when the instruction is updated.
+     * Update to the next step in the steps list.
+     * @return {Promise} A promise which resolves when the step is updated.
      * @private
      */
-    var _onNextInstruction = function () {
-        return Applitools.nextInstruction()
+    var _onNextStep = function () {
+        return Applitools.moveToNextStep()
             .then(function () {
-                return _updateInstructionText();
+                return _updateStepText();
             });
     };
 
     /**
-     * Update to the previous instruction in the instructions list.
-     * @return {Promise} A promise which resolves when the instruction is updated.
+     * Update to the previous step in the steps list.
+     * @return {Promise} A promise which resolves when the step is updated.
      * @private
      */
-    var _onPrevInstruction = function () {
-        return Applitools.prevInstruction()
+    var _onPrevStep = function () {
+        return Applitools.moveToPrevStep()
             .then(function () {
-                return _updateInstructionText();
+                return _updateStepText();
             });
     };
 
     /**
-     * Initializes the instructions panel's close button with the required listeners.
-     * @return {Promise} A promise which resolves to the "close instructions panel" element.
+     * Initializes the steps panel's close button with the required listeners.
+     * @return {Promise} A promise which resolves to the "close steps panel" element.
      * @private
      */
-    var _initCloseInstructionsPanel = function () {
-        var closeInstructionsPanelElement = _getCloseInstructionsPanelElement();
-        closeInstructionsPanelElement.addEventListener('click', _onCloseInstructionsPanel);
-        return RSVP.resolve(closeInstructionsPanelElement);
+    var _initCloseStepsPanel = function () {
+        var closeStepsPanelElement = _getCloseStepsPanelElement();
+        closeStepsPanelElement.addEventListener('click', _onCloseStepsPanel);
+        return RSVP.resolve(closeStepsPanelElement);
     };
 
     /**
-     * Initializes the instructions panel's next instruction button with the required listeners.
-     * @return {Promise} A promise which resolves to the "next instruction" element.
+     * Initializes the steps panel's next step button with the required listeners.
+     * @return {Promise} A promise which resolves to the "next step" element.
      * @private
      */
-    var _initNextInstructionButton = function () {
-        var nextInstructionButtonElement = _getNextInstructionButtonElement();
-        nextInstructionButtonElement.addEventListener('click', _onNextInstruction);
-        return RSVP.resolve(nextInstructionButtonElement);
+    var _initNextStepButton = function () {
+        var nextStepButtonElement = _getNextStepButtonElement();
+        nextStepButtonElement.addEventListener('click', _onNextStep);
+        return RSVP.resolve(nextStepButtonElement);
     };
 
     /**
-     * Initializes the instructions panel's next instruction button with the required listeners.
-     * @return {Promise} A promise which resolves to the "next instruction" element.
+     * Initializes the steps panel's previous step button with the required listeners.
+     * @return {Promise} A promise which resolves to the "previous step" element.
      * @private
      */
-    var _initPrevInstructionButton = function () {
-        var prevInstructionButtonElement = _getPrevInstructionButtonElement();
-        prevInstructionButtonElement.addEventListener('click', _onPrevInstruction);
-        return RSVP.resolve(prevInstructionButtonElement);
+    var _initPrevStepButton = function () {
+        var prevStepButtonElement = _getPrevStepButtonElement();
+        prevStepButtonElement.addEventListener('click', _onPrevStep);
+        return RSVP.resolve(prevStepButtonElement);
     };
 
     /**
-     * Initializes the elements on the instructions panel.
-     * @return {Promise} A promise which resolves when the instructions panel's elements are initialized.
+     * Initializes the elements on the steps panel.
+     * @return {Promise} A promise which resolves when the steps panel's elements are initialized.
      * @private
      */
-    var _initInstructionsPanel = function () {
+    var _initStepsPanel = function () {
 
 
-        return _initInstructionsLoadButton()
+        return _initStepsLoadButton()
             .then(function () {
-                return _initCloseInstructionsPanel();
+                return _initCloseStepsPanel();
             }).then(function () {
-                return _initNextInstructionButton();
+                return _initNextStepButton();
             }).then(function () {
-                return _initPrevInstructionButton();
+                return _initPrevStepButton();
             }).then(function () {
-                return Applitools.getCurrentInstructionIndex();
-            }).then(function (currentInstructionIndex) {
-                // If there's no current instruction, then we don't show the instruction
-                if (currentInstructionIndex === undefined) {
-                    return _showInstructionsPanel(false);
+                return Applitools.getCurrentStepIndex();
+            }).then(function (currentStepIndex) {
+                // If there's no current step, then we don't show the steps panel.
+                if (currentStepIndex === undefined) {
+                    return _showStepsPanel(false);
                 }
 
-                return _updateInstructionText().then(function () {
-                    _showInstructionsPanel(true)
+                return _updateStepText().then(function () {
+                    _showStepsPanel(true)
                 });
             });
     };
@@ -960,7 +956,7 @@
             }).then(function () {
                 return _initResetBatchId();
             }).then(function () {
-                return _initInstructionsPanel();
+                return _initStepsPanel();
             }).then(function () {
                 return _showBatchPanel(shouldUseBatch);
             });
