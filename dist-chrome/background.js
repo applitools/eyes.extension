@@ -29,6 +29,7 @@ window.Applitools = (function () {
     var Applitools_ = {};
 
     var _stepsHandler;
+    var _stepsResultsTabId; // When working in "steps" mode, we want all results to be opened in the same tab.
 
     Applitools_.currentState = {
         screenshotTakenMutex: {},
@@ -81,6 +82,7 @@ window.Applitools = (function () {
         return new RSVP.Promise(function (resolve) {
             return StepsHandler.createFromString(s).then(function (stepsHandler) {
                 _stepsHandler = stepsHandler;
+                _stepsResultsTabId = undefined;
                 resolve();
             }.bind(this));
         }.bind(this));
@@ -734,58 +736,99 @@ window.Applitools = (function () {
      */
     Applitools_._handleTestResults = function (testResults, testParams, testWindow) {
         var deferred = RSVP.defer();
-        var resultsUrl;
-        ConfigurationStore.getEyesServerUrl().then(function (resultsServer) {
-            // We want to use the results server as the prefix for the url
-            var urlSessionPart = testResults.url.split("/app")[1];
-            resultsUrl = resultsServer + "/app" + urlSessionPart;
-            ConfigurationStore.getNewTabForResults()
-                .then(function (shouldOpen) {
-                    if (shouldOpen) {
-                        var baselineId = JSON.stringify(testParams),
-                            tabId = _resultTabs[baselineId];
+        var resultsUrl, shouldUseBatch;
 
-                        // FIXME Daniel - replace chrome.tabs.create with ChromeUtils.createTab
-
-                        if (tabId) {
-                            // This baseline already had a result tab. If it's open
-                            // we will reuse it
-                            chrome.tabs.update(tabId, {url: resultsUrl},
-                                function (tab) {
-                                    if (tab) {
-                                        deferred.resolve(tab);
-                                    } else {
-                                        // If the user closed the tab
-                                        chrome.tabs.create({
-                                            windowId: testWindow.id,
-                                            url: resultsUrl,
-                                            active: false
-                                        }, function (tab) {
+        ConfigurationStore.getShouldUseBatch().then(function (shouldUseBatch_) {
+            shouldUseBatch = shouldUseBatch_;
+            ConfigurationStore.getEyesServerUrl().then(function (resultsServer) {
+                // We want to use the results server as the prefix for the url
+                var urlSessionPart = testResults.url.split("/app")[1];
+                resultsUrl = resultsServer + "/app" + urlSessionPart;
+                ConfigurationStore.getNewTabForResults()
+                    .then(function (shouldOpen) {
+                        if (shouldOpen) {
+                                // If we're in steps mode, we want to open the results always in the same tab.
+                            if (shouldUseBatch && _stepsHandler) {
+                                // If such a tab already exists (or existed).
+                                if (_stepsResultsTabId) {
+                                    chrome.tabs.update(_stepsResultsTabId, {url: resultsUrl},
+                                        function (tab) {
                                             if (tab) {
-                                                _resultTabs[baselineId] = tab.id;
+                                                deferred.resolve(tab);
+                                            } else {
+                                                // If the user closed the tab
+                                                chrome.tabs.create({
+                                                    windowId: testWindow.id,
+                                                    url: resultsUrl,
+                                                    active: false
+                                                }, function (tab) {
+                                                    if (tab) {
+                                                        _stepsResultsTabId = tab.id;
+                                                    }
+                                                    deferred.resolve(tab);
+                                                });
                                             }
-                                            deferred.resolve(tab);
                                         });
-                                    }
-                                });
-                        } else {
-                            // If there was no previous tab open for the results of the test.
-                            chrome.tabs.create({
-                                windowId: testWindow.id,
-                                url: resultsUrl,
-                                active: false
-                            }, function (tab) {
-                                if (tab) {
-                                    _resultTabs[baselineId] = tab.id;
+                                } else {
+                                    // No tab for the steps results exists.
+                                    chrome.tabs.create({
+                                        windowId: testWindow.id,
+                                        url: resultsUrl,
+                                        active: false
+                                    }, function (tab) {
+                                        if (tab) {
+                                            _stepsResultsTabId = tab.id;
+                                        }
+                                        deferred.resolve(tab);
+                                    });
                                 }
-                                deferred.resolve(tab);
-                            });
+                            } else {
+                                var baselineId = JSON.stringify(testParams),
+                                    tabId = _resultTabs[baselineId];
+
+                                // FIXME Daniel - replace chrome.tabs.create with ChromeUtils.createTab
+
+                                if (tabId) {
+                                    // This baseline already had a result tab. If it's open
+                                    // we will reuse it
+                                    chrome.tabs.update(tabId, {url: resultsUrl},
+                                        function (tab) {
+                                            if (tab) {
+                                                deferred.resolve(tab);
+                                            } else {
+                                                // If the user closed the tab
+                                                chrome.tabs.create({
+                                                    windowId: testWindow.id,
+                                                    url: resultsUrl,
+                                                    active: false
+                                                }, function (tab) {
+                                                    if (tab) {
+                                                        _resultTabs[baselineId] = tab.id;
+                                                    }
+                                                    deferred.resolve(tab);
+                                                });
+                                            }
+                                        });
+                                } else {
+                                    // If there was no previous tab open for the results of the test.
+                                    chrome.tabs.create({
+                                        windowId: testWindow.id,
+                                        url: resultsUrl,
+                                        active: false
+                                    }, function (tab) {
+                                        if (tab) {
+                                            _resultTabs[baselineId] = tab.id;
+                                        }
+                                        deferred.resolve(tab);
+                                    });
+                                }
+                            }
+                        } else {
+                            // No need to open a tab for showing the results.
+                            deferred.resolve(null);
                         }
-                    } else {
-                        // No need to open a tab for showing the results.
-                        deferred.resolve(null);
-                    }
-                });
+                    });
+            });
         });
         return deferred.promise;
     };
