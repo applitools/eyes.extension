@@ -564,9 +564,6 @@
             return WindowHandler.getCurrentTransform(tabId);
         }).then(function (originalTransform_) {
             originalTransform = originalTransform_;
-            // Translating to "top/left" of the page (notice this is different from Javascript scrolling).
-            return WindowHandler.translateTo(tabId, 0, 0);
-        }).then(function () {
             return JSUtils.sleep(1000);
         }).then(function () {
             // Capture the first image part, or entire screenshot.
