@@ -459,7 +459,7 @@
                     return;
                 }
                 // If we don't need to return an Image object
-                deferred.resolve({imageBuffer: imageBuffer, isSclaed: isScaled});
+                deferred.resolve({imageBuffer: imageBuffer, isScaled: isScaled});
             });
         });
 

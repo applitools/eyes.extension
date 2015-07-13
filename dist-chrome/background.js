@@ -12,6 +12,7 @@ window.Applitools = (function () {
         ConfigurationStore = require('./../ConfigurationStore.js'),
         WindowHandler = require('./WindowHandler.js'),
         StepsHandler = require('../StepsHandler.js'),
+        BaselineImageHandler = require('../BaselineImageHandler.js'),
         RSVP = require('rsvp');
 
     var _DEFAULT_BROWSER_ACTION_TOOLTIP = "Applitools Eyes. No tests are currently running.";
@@ -30,6 +31,9 @@ window.Applitools = (function () {
 
     var _stepsHandler;
     var _stepsResultsTabId; // When working in "steps" mode, we want all results to be opened in the same tab.
+
+    var _baselineImageHandler;
+    var _isBaselineImageLoadingEnabled = true;
 
     Applitools_.currentState = {
         screenshotTakenMutex: {},
@@ -169,6 +173,70 @@ window.Applitools = (function () {
     };
 
     /**
+     * @returns {boolean} {@code true} if baseline image loading is enabled, {@code false} otherwise.
+     */
+    Applitools_.isBaselineImageLoadingEnabled = function () {
+        return !!_isBaselineImageLoadingEnabled;
+    };
+
+    /**
+     * Sets whether or not loading a baseline image is enabled. Notice that this doesn't mean that an image had been
+     * loaded, it only means whether or not it is possible(!) to load an image.
+     */
+    Applitools_.setBaselineImageLoadingEnabled = function (isEnabled) {
+        _isBaselineImageLoadingEnabled = isEnabled;
+    };
+
+    /**
+     *
+     * @returns {boolean} {@code true} if an image was loaded to be used as a baseline, {@code false} otherwise.
+     */
+    Applitools_.isImageAsBaselineLoaded = function () {
+        return !!_baselineImageHandler;
+    };
+
+    /**
+     * Mark the currently loaded image as a baseline for use.
+     * @returns {Promise} A promise which resolves once the value is set, or rejects if no image was previously loaded.
+     */
+    Applitools_.setShouldUseImageAsBaseline = function (shouldUse) {
+        if (_baselineImageHandler) {
+            return _baselineImageHandler.setShouldUse(shouldUse);
+        }
+        return Promise.reject();
+    };
+
+    /**
+     * @returns {boolean} Whether or not we should use a baseline image.
+     */
+    Applitools_.getShouldUseImageAsBaseline = function () {
+        return _baselineImageHandler && _baselineImageHandler.getShouldUse();
+    };
+
+    /**
+     * @returns {string|undefined} The filename of the baseline image to use, or undefined if no image is loaded.
+     */
+    Applitools_.getBaselineImageName = function () {
+        return _baselineImageHandler ? _baselineImageHandler.getFilename() : undefined;
+    };
+
+    /**
+     * Prepares an image to be used as a baseline
+     * @param {Buffer} image The image to be used as a baseline.
+     * @param {string} name The image file name.
+     * @returns {Promise} A promise which resolves when the image is set.
+     */
+    Applitools_.prepareImageForBaseline = function (image, name) {
+        return new Promise(function (resolve) {
+            return BaselineImageHandler.createFromImage(image, name)
+                .then(function (baselineImageHandler) {
+                    _baselineImageHandler = baselineImageHandler;
+                    resolve();
+                });
+        });
+    };
+
+    /**
      * Get the current batch ID.
      * @return {string|undefined} The current batch ID, or undefined if no batchID is available.
      * @private
@@ -273,26 +341,36 @@ window.Applitools = (function () {
     };
 
     /**
-     * Verifies that an api key exists, and opens the login tab if it doesn't.
-     * @return {Promise} A promise which resolves to the API key, or to undefined if there's no api key.
+     * Verifies that the api keys exists, and opens the login tab if they don't.
+     * @return {Promise} A promise which resolves to the API keys, or to undefined if there's no api key.
      */
     Applitools_.verifyApiKey = function () {
-        return ConfigurationStore.getApiKey().then(function (apiKey) {
-            if (!apiKey) {
-                var deferred = RSVP.defer();
-                ChromeUtils.getCurrentTab().then(function (currentTab) {
-                    chrome.tabs.create({windowId: currentTab.windowId, url: _APPLITOOLS_LOGIN_URL, active: true},
-                        function () {
-                            Applitools_.updateBrowserActionBadge(true,
-                                "You must be signed in to Applitools in order to use this extension.").
-                                then(function () {
-                                    deferred.resolve(null);
+        var apiKey, accountId;
+        return ConfigurationStore.getApiKey()
+            .then(function (apiKey_) {
+                apiKey = apiKey_;
+                return ConfigurationStore.getAccountId();
+            }).then(function (accountId_) {
+                accountId = accountId_;
+            }).then(function () {
+                if (!apiKey || !accountId) {
+                    return new RSVP.Promise(function (resolve) {
+                        ChromeUtils.getCurrentTab().then(function (currentTab) {
+                            chrome.tabs.create({
+                                    windowId: currentTab.windowId,
+                                    url: _APPLITOOLS_LOGIN_URL,
+                                    active: true
+                                }, function () {
+                                    Applitools_.updateBrowserActionBadge(true,
+                                        'You must be signed in to Applitools in order to use this extension.').
+                                        then(function () {
+                                            resolve();
+                                        });
                                 });
                         });
-                });
-                return deferred.promise;
-            }
-            return apiKey;
+                    });
+                }
+                return {apiKey: apiKey, accountId: accountId};
         });
     };
 
@@ -656,6 +734,24 @@ window.Applitools = (function () {
     };
 
     /**
+     * Runs a test using the image, saves the result as a baseline, and removes the test from the tests list.
+     * @param {Buffer} image The image to save as a baseline.
+     * @param {Object} testParams The test parameters (e.g., app name, test name, etc.).
+     * @returns {Promise} A promise which resolves when saving the image as baseline is done.
+     * @private
+     */
+    Applitools_._saveImageAsBaseline = function (image, testParams) {
+        var imageTestParams = Object.create(testParams);
+        imageTestParams.saveFailedTests = true;
+        return EyesHandler.testImage(imageTestParams, image, 'Image to be used as baseline')
+            .then(function (testResults) {
+                return EyesHandler.deleteTests([testResults.sessionId]);
+            }).catch(function () {
+                // If the deletion failed, we still want to continue.
+            });
+    };
+
+    /**
      * Runs a test for a given tab.
      * @param taskScheduler A task scheduler for sequencing the screenshot taking.
      * @param {chrome.tabs.Tab} tabToTest The tab to run the test on.
@@ -671,6 +767,12 @@ window.Applitools = (function () {
 
 
         Applitools_._testStarted(tabToTest.id, testParams.appName, testParams.testName).then(function () {
+            // If we need to compare to a baseline image.
+            if (Applitools_.isBaselineImageLoadingEnabled() && Applitools_.getShouldUseImageAsBaseline()) {
+                return Applitools_._saveImageAsBaseline(_baselineImageHandler.getImage(), testParams);
+            }
+            return RSVP.resolve();
+        }).then(function () {
             // Checking whether or not we need a full page screenshot, as well as setting batch if necessary.
             return ConfigurationStore.getTakeFullPageScreenshot().then(function (forceFullPageScreenshot_) {
                 forceFullPageScreenshot = forceFullPageScreenshot_;
@@ -836,7 +938,7 @@ window.Applitools = (function () {
     /**
      * Tests the current tab.
      * @return {Object} An object containing 3 promises: {@code screenshotTaken}, {@code testFinished},
- *              {@code resultsHandled}. If an error occurred, the function rejects.
+     *              {@code resultsHandled}. If an error occurred, the function rejects.
      */
     Applitools_.runSingleTest = function () {
         var shouldUseBatch;
@@ -852,7 +954,7 @@ window.Applitools = (function () {
             testParams = testParams_;
             appName = testParams.appName;
             testName = testParams.testName;
-            var testParamsLogMessage = Applitools_._buildLogMessage(appName, testName, "Got tests parameters");
+            var testParamsLogMessage = Applitools_._buildLogMessage(appName, testName, 'Got tests parameters');
             Applitools_._log(testParamsLogMessage);
         }, function (err) {
             return Applitools_._onError('Failed to extract test parameters: ' + err, undefined, undefined)
@@ -986,6 +1088,7 @@ window.Applitools = (function () {
         var originalTab, testParams, appName, testName, preparedWindowData;
         var currentTabScreenshotPromise, currentTabFinishedTestPromise;
         var urlsToCrawl;
+        var shouldUseBaselineImageOrigValue;
         var taskRunner = new JSUtils.SequentialTaskRunner();
 
         // We start with testing the current tab.
@@ -1011,6 +1114,10 @@ window.Applitools = (function () {
                 .then(function () {
                     return RSVP.reject();
                 });
+        }).then(function () {
+            shouldUseBaselineImageOrigValue = Applitools_.getShouldUseImageAsBaseline();
+            // For crawled tests we don't want to use a loaded baseline image.
+            return Applitools_.setShouldUseImageAsBaseline(false);
         }).then(function () {
             return Applitools_._prepareWindowForTests(originalTab, testParams.viewportSize);
         }).then(function (preparedWindowData_) {
@@ -1052,6 +1159,8 @@ window.Applitools = (function () {
             }
 
             return RSVP.all(tabsDonePromises);
+        }).then(function () {
+            Applitools_.setShouldUseImageAsBaseline(shouldUseBaselineImageOrigValue);
         }).then(function () {
             return Applitools_._restoreTab(preparedWindowData.updated.tab,
                 preparedWindowData.updated.isNewWindowCreated,

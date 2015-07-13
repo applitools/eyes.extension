@@ -38,23 +38,28 @@
         --></div><!--
     --></div><!--
     --><div id="baselinePanel" class="notDisplayed" tabindex="-1">
-        <div class="selectionContainer defaultValuesContainer" tabindex="1"><!--
+        <div class="selectionContainer" id="defaultValuesContainer" tabindex="10"><!--
             --><input type="radio" name="userSelection" class="userSelection" id="defaultValuesSelection"><!--
             --><span>Use default values <span id="defaultValuesExplanation">(app name = URL domain, test name = URL path)</span></span><!--
         --></div>
-        <div class="selectionContainer userValuesContainer" tabindex="-1"><!--
-            --><input type="radio" name="userSelection" class="userSelection" id="userValuesSelection" tabindex="2"><!--
-            --><input type="text" class="userInput shortInput" name="appName" id="appName" placeholder="Application Name" tabindex="3"><!--
-            --><input type="text" class="userInput shortInput" name="testName" id="testName" placeholder="Test Name" tabindex="4"><!--
+        <div class="selectionContainer" id="userValuesContainer" tabindex="-1"><!--
+            --><input type="radio" name="userSelection" class="userSelection" id="userValuesSelection" tabindex="20"><!--
+            --><input type="text" class="userInput shortInput" name="appName" id="appName" placeholder="Application Name" tabindex="30"><!--
+            --><input type="text" class="userInput shortInput" name="testName" id="testName" placeholder="Test Name" tabindex="40"><!--
         --></div>
-        <div class="selectionContainer stepUrlContainer" tabindex="-1"><!--
-            --><input type="radio" name="userSelection" class="userSelection" id="stepUrlSelection" tabindex="5"><!--
-            --><input type="url" class="userInput longInput" name="stepUrl" id="stepUrl" placeholder="Test step URL" title="A URL to a step in an existing test, which will be used as a baseline." tabindex="6"><!--
+        <div class="selectionContainer" id="stepUrlContainer" tabindex="-1"><!--
+            --><input type="radio" name="userSelection" class="userSelection" id="stepUrlSelection" tabindex="50"><!--
+            --><input type="url" class="userInput longInput" name="stepUrl" id="stepUrl" placeholder="Test step URL" title="A URL to a step in an existing test, which will be used as a baseline." tabindex="60"><!--
+        --></div>
+        <div class="selectionContainer" id="baselineImageContainer" tabindex="-1"><!--
+            --><input type="checkbox" class="userSelection" id="useImageAsBaseline" tabindex="70"><!--
+            --><label id="baselineImageLoadButtonLabel" tabindex="-1">Compare to image...</label><!--
+            --><input type="file" accept=".png" id="baselineImageLoadButton" class="notDisplayed" tabindex="-1"><!--
+            --><input type="text" readonly class="userInput longInput" id="baselineImageFilename" placeholder="No image selected." tabindex="80"><!--
         --></div>
         <div class="decisionButtonsContainer"><!--
-            --><button class="decisionButton okButton" id="baselineOk" tabindex="8">OK</button><!--
-            --><button class="decisionButton cancelButton" id="baselineCancel" tabindex="7">Cancel</button>
-        </div>
+            --><button class="decisionButton okButton" id="baselineOk" tabindex="100">OK</button><!--
+        --></div>
     </div>
     <script src="compiled/bf-popup.js"></script>
 </body>

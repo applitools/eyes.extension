@@ -2,6 +2,10 @@
 
 $BUTTON_HOVER_FONT_COLOR: #0b7ba2;
 $EXTENSION_SIZE_PLUS_ONE: 53px;
+$STEPS_LOAD_WIDTH: 40px;
+$STEPS_LOAD_PADDING: 5px;
+$FILE_LOADED_INPUT_BACKGROUND_COLOR: #fcfcfc;
+$DISABLED_BACKGROUND_COLOR: #f9f9f9;
 
 #mainPanel {
   position: relative;
@@ -265,7 +269,7 @@ $EXTENSION_SIZE_PLUS_ONE: 53px;
 .selectionContainer {
   border-bottom: solid 1px #a8a8a8;
   height: 52px;
-  padding-right: 18px;
+  //padding-right: 18px;
   outline: none;
 }
 
@@ -275,7 +279,7 @@ $EXTENSION_SIZE_PLUS_ONE: 53px;
 }
 
 .userInput {
-  background-color: #eeeeee;
+  background-color: $DISABLED_BACKGROUND_COLOR;
   font-style: italic;
   color: #9b9b9b;
   border: solid 1px #a8a8a8;
@@ -299,7 +303,7 @@ $EXTENSION_SIZE_PLUS_ONE: 53px;
 }
 
 .longInput {
-  width: 376px;
+  width: 377px;
   height: 21px;
 }
 
@@ -340,13 +344,14 @@ $EXTENSION_SIZE_PLUS_ONE: 53px;
 }
 
 .decisionButton {
-  @include classicButton;
+  display: inline-block;
   float: right;
-  margin-top: 18px;
-
-  &.cancelButton {
-    margin-right: 16px;
-  }
+  margin-top: 16px;
+  width: 103px;
+  height: 25px;
+  border: solid 1px #a8a8a8;
+  background-color: #fff;
+  border-radius: 5px;
 }
 
 #batchPanel {
@@ -357,9 +362,6 @@ $EXTENSION_SIZE_PLUS_ONE: 53px;
     width: 392px;
   }
 }
-
-$STEPS_LOAD_WIDTH: 40px;
-$STEPS_LOAD_PADDING: 5px;
 
 #stepsLoadWrapper {
   display: inline-block;
@@ -460,7 +462,7 @@ $STEPS_LOAD_PADDING: 5px;
 #baselinePanel {
   min-width: 448px;
 
-  .defaultValuesContainer {
+  #defaultValuesContainer {
     &:focus {
       outline: none;
     }
@@ -476,4 +478,34 @@ $STEPS_LOAD_PADDING: 5px;
   }
 }
 
+#baselineImageLoadButtonLabel {
+  margin-right: 20px;
+  -webkit-user-select: none;
+  border: 1px solid #a8a8a8;
+  border-radius: 5px;
+  padding: 5px;
+}
 
+#baselineImageFilename {
+  width: 233px;
+  @include transitionalProperty(background-color, 1s);
+}
+
+.fileLoaded {
+  background-color: $FILE_LOADED_INPUT_BACKGROUND_COLOR;
+  font-style: normal;
+}
+
+#baselineImageContainer {
+  &.disabled {
+    background-color: $DISABLED_BACKGROUND_COLOR;
+
+    #baselineImageLoadButtonLabel {
+      font-style: italic;
+    }
+
+    #baselineImageFilename {
+      font-style: italic;
+    }
+  }
+}

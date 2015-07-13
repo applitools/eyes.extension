@@ -1,3 +1,5 @@
+$DEFAULT_FONT_COLOR: #454545;
+
 @font-face {
   font-family: 'Open Sans';
   //noinspection CssUnknownTarget
@@ -30,8 +32,6 @@
   transition-property: $property;
   transition-duration: $duration;
 }
-
-$DEFAULT_FONT_COLOR: #454545;
 
 body {
   margin: 0;

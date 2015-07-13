@@ -28,6 +28,9 @@
     var _API_KEY_COOKIE_URL = 'https://applitools.com';
     var _API_KEY_COOKIE_NAME = 'run-key';
 
+    var _ACCOUNT_ID_COOKIE_URL = 'https://applitools.com';
+    var _ACCOUNT_ID_COOKIE_NAME = 'account-id';
+
     var ConfigurationStore = {};
 
     /**
@@ -343,11 +346,21 @@
     };
 
     /**
-     * @return {Promise} A promise which resolves to the saved API key, or the the API key available via applitools
+     * @return {Promise} A promise which resolves to the saved API key, or if the API key available via applitools
      * cookie, or undefined.
      */
     ConfigurationStore.getApiKey = function () {
         return StorageAdapter.getCookie(_API_KEY_COOKIE_URL, _API_KEY_COOKIE_NAME).then(function (cookie) {
+            return cookie ? cookie.value : undefined;
+        });
+    };
+
+    /**
+     * @return {Promise} A promise which resolves to the saved accountId key, or if the accountId key available
+     * via applitools cookie, or undefined.
+     */
+    ConfigurationStore.getAccountId = function () {
+        return StorageAdapter.getCookie(_ACCOUNT_ID_COOKIE_URL, _ACCOUNT_ID_COOKIE_NAME).then(function (cookie) {
             return cookie ? cookie.value : undefined;
         });
     };

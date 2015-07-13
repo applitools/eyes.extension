@@ -7,43 +7,54 @@
     //noinspection JSUnresolvedFunction
     var ConfigurationStore = require('./../ConfigurationStore.js'),
         JSUtils = require('./../JSUtils.js'),
-        RSVP = require('rsvp');
+        RSVP = require('rsvp'),
+        toBuffer = require('typedarray-to-buffer'),
+        debounce = require('lodash.debounce');
 
     var Applitools = chrome.extension.getBackgroundPage().Applitools;
 
-    var _NOT_DISPLAYED_CLASS = "notDisplayed",
-        _BATCH_OPEN_CLASS = "batchOpen",
-        _INVALID_INPUT_CLASS = "invalidInput",
-        _SELECTED_CLASS = "selected",
-        _DISABLED_CLASS = "disabled",
-        _NOTIFICATION_ICON_CLASS = "notificationIcon";
+    var _NOT_DISPLAYED_CLASS = 'notDisplayed',
+        _BATCH_OPEN_CLASS = 'batchOpen',
+        _INVALID_INPUT_CLASS = 'invalidInput',
+        _SELECTED_CLASS = 'selected',
+        _FILE_LOADED_CLASS = 'fileLoaded',
+        _DISABLED_CLASS = 'disabled',
+        _NOTIFICATION_ICON_CLASS = 'notificationIcon';
 
-    var _OPTIONS_ELEMENT_ID = "options",
-        _MAIN_PANEL_ELEMENT_ID = "mainPanel",
-        _BASELINE_PANEL_ELEMENT_ID = "baselinePanel",
-        _SHOW_BASELINE_ELEMENT_ID = "showBaseline",
-        _BATCH_PANEL_ELEMENT_ID = "batchPanel",
-        _STEPS_PANEL_ELEMENT_ID = "stepsPanel",
-        _STEP_TEXT_ELEMENT_ID = "stepText",
-        _PREV_STEP_BUTTON_ELEMENT_ID = "prevStep",
-        _NEXT_STEP_BUTTON_ELEMENT_ID = "nextStep",
-        _CLOSE_STEPS_PANEL_ELEMENT_ID = "closeStepsPanel",
-        _STEPS_LOAD_BUTTON_ELEMENT_ID = "stepsLoadButton",
-        _SHOW_BATCH_PANEL_ELEMENT_ID = "showBatchPanel",
-        _MATCH_LEVEL_ELEMENT_ID = "matchLevel",
-        _VIEWPORT_SIZE_ELEMENT_ID = "viewportSize",
-        _RUN_SINGLE_TEST_ELEMENT_ID = "runSingleTest",
-        _RUN_CRAWLER_ELEMENT_ID = "runCrawler",
-        _STEP_URL_ELEMENT_ID = "stepUrl",
-        _STEP_URL_SELECTION_ELEMENT_ID = "stepUrlSelection",
-        _APP_NAME_ELEMENT_ID = "appName",
-        _TEST_NAME_ELEMENT_ID = "testName",
-        _USER_VALUES_SELECTION_ELEMENT_ID = "userValuesSelection",
-        _DEFAULT_VALUES_SELECTION_ELEMENT_ID = "defaultValuesSelection",
-        _BATCH_NAME_ELEMENT_ID = "batchName",
-        _RESET_BATCH_ID_ELEMENT_ID = "newBatchId",
-        _BASELINE_CANCEL_ELEMENT_ID = "baselineCancel",
-        _BASELINE_OK_ELEMENT_ID = "baselineOk";
+    var _OPTIONS_ELEMENT_ID = 'options',
+        _MAIN_PANEL_ELEMENT_ID = 'mainPanel',
+        _BASELINE_PANEL_ELEMENT_ID = 'baselinePanel',
+        _SHOW_BASELINE_ELEMENT_ID = 'showBaseline',
+        _BATCH_PANEL_ELEMENT_ID = 'batchPanel',
+        _STEPS_PANEL_ELEMENT_ID = 'stepsPanel',
+        _STEP_TEXT_ELEMENT_ID = 'stepText',
+        _PREV_STEP_BUTTON_ELEMENT_ID = 'prevStep',
+        _NEXT_STEP_BUTTON_ELEMENT_ID = 'nextStep',
+        _CLOSE_STEPS_PANEL_ELEMENT_ID = 'closeStepsPanel',
+        _STEPS_LOAD_BUTTON_ELEMENT_ID = 'stepsLoadButton',
+        _BASELINE_IMAGE_LOAD_BUTTON_ELEMENT_ID = 'baselineImageLoadButton',
+        _BASELINE_IMAGE_LOAD_BUTTON_LABEL_ID = 'baselineImageLoadButtonLabel',
+        _USE_IMAGE_AS_BASELINE_CHECKBOX_ID = 'useImageAsBaseline',
+        _BASELINE_IMAGE_FILENAME_INPUT_ELEMENT_ID = 'baselineImageFilename',
+        _SHOW_BATCH_PANEL_ELEMENT_ID = 'showBatchPanel',
+        _MATCH_LEVEL_ELEMENT_ID = 'matchLevel',
+        _VIEWPORT_SIZE_ELEMENT_ID = 'viewportSize',
+        _RUN_SINGLE_TEST_ELEMENT_ID = 'runSingleTest',
+        _RUN_CRAWLER_ELEMENT_ID = 'runCrawler',
+        _STEP_URL_ELEMENT_ID = 'stepUrl',
+        _STEP_URL_SELECTION_ELEMENT_ID = 'stepUrlSelection',
+        _APP_NAME_ELEMENT_ID = 'appName',
+        _TEST_NAME_ELEMENT_ID = 'testName',
+        _USER_VALUES_SELECTION_ELEMENT_ID = 'userValuesSelection',
+        _DEFAULT_VALUES_SELECTION_ELEMENT_ID = 'defaultValuesSelection',
+        _DEFAULT_VALUES_SELECTION_CONTAINER_ELEMENT_ID = 'defaultValuesContainer',
+        _BASELINE_IMAGE_CONTAINER_ELEMENT_ID = 'baselineImageContainer',
+        _BATCH_NAME_ELEMENT_ID = 'batchName',
+        _RESET_BATCH_ID_ELEMENT_ID = 'newBatchId',
+        _BASELINE_OK_ELEMENT_ID = 'baselineOk';
+
+
+    var _baselineIinitalized = false;
 
     /**
      * Sets the options for a select html element (options' values are also the options' texts).
@@ -55,7 +66,7 @@
      */
     var _setSelect = function (selectElement, optionValues, defaultValue) {
         //noinspection JSLint
-        for (var i=0; i<optionValues.length; ++i) {
+        for (var i = 0; i < optionValues.length; ++i) {
             var currentValue = optionValues[i];
 
             // Initialize the option to be added
@@ -139,13 +150,41 @@
         return document.getElementById(_PREV_STEP_BUTTON_ELEMENT_ID);
     };
 
+    var _getBaselineImageLoadButtonElement = function () {
+        return document.getElementById(_BASELINE_IMAGE_LOAD_BUTTON_ELEMENT_ID);
+    };
+
+    var _getBaselineImageFilenameInputElement = function () {
+        return document.getElementById(_BASELINE_IMAGE_FILENAME_INPUT_ELEMENT_ID);
+    };
+
+    var _getBaselineImageLoadButtonLabelElement = function () {
+        return document.getElementById(_BASELINE_IMAGE_LOAD_BUTTON_LABEL_ID);
+    };
+
+    var _getUseImageAsBaselineCheckboxElement = function () {
+        return document.getElementById(_USE_IMAGE_AS_BASELINE_CHECKBOX_ID);
+    };
+
+    var _getBaselineOkButtonElement = function () {
+        return document.getElementById(_BASELINE_OK_ELEMENT_ID);
+    };
+
     //noinspection JSUnusedLocalSymbols
     var _getMainPanelElement = function () {
         return document.getElementById(_MAIN_PANEL_ELEMENT_ID);
     };
 
+    var _getShowBaselinePanelButton = function () {
+        return document.getElementById(_SHOW_BASELINE_ELEMENT_ID);
+    };
+
     var _getDefaultValuesSelectionContainer = function () {
-        return document.getElementsByClassName('defaultValuesContainer')[0];
+        return document.getElementById(_DEFAULT_VALUES_SELECTION_CONTAINER_ELEMENT_ID);
+    };
+
+    var _getBaselineImageContainer = function () {
+        return document.getElementById(_BASELINE_IMAGE_CONTAINER_ELEMENT_ID);
     };
 
     /**
@@ -222,7 +261,7 @@
 
         return batchPanelPromise.then(function () {
             return panelToShow;
-        })
+        });
     };
 
     /**
@@ -252,9 +291,10 @@
 
     var _updateShowBaselinePanelButton = function (baselineButton, selectionId) {
         // Checking if there's a non-default baseline selection - i.e. not undefined
-        if (!selectionId || selectionId === _DEFAULT_VALUES_SELECTION_ELEMENT_ID) {
+        if ((!selectionId || selectionId === _DEFAULT_VALUES_SELECTION_ELEMENT_ID) &&
+                !Applitools.getShouldUseImageAsBaseline()) {
             baselineButton.classList.remove(_NOTIFICATION_ICON_CLASS);
-            baselineButton.title = "Set a custom baseline";
+            baselineButton.title = 'Set a custom baseline';
             return RSVP.resolve(baselineButton);
         }
 
@@ -472,15 +512,15 @@
     };
 
     /**
-     * Saves the changes the user performed on the baseline panel (if valid) and shows the main panel. If changes were
-     * not valid, it will NOT switch back to the main panel.
-     * @return {Promise} A promise which resolves when the changes are saved and the main panel is set to be shown,
-     *                   or rejected if the user provided values are invalid.
+     * Saves the changes the user performed on the baseline panel (if valid). If changes were not valid, it will
+     * highlight them.
+     * @return {Promise} A promise which resolves when the changes are saved, or rejected to an error highlight callback.
      * @private
      */
-    var _onBaselineOkayButtonClicked = function () {
+    var _saveBaselineSettings = function () {
         var stepUrl, appName, testName, selectionId;
 
+        // We want to save the values even inside the non-selected inputs, since this is the flow the user expects.
         var stepUrlSelectionElement = _getStepUrlSelectionElement();
         stepUrl = _getStepUrlInputElement().value.trim();
 
@@ -491,16 +531,17 @@
         // For the selected type of input we want to make sure values are valid.
         if (stepUrlSelectionElement.checked) {
             if (!stepUrl || !Applitools.extractStepUrlParameters(stepUrl)) {
-                return _highlightInvalidInput(_getStepUrlInputElement()).then(function () {
-                    return RSVP.reject(new Error('Invalid step URL: ' + stepUrl));
+                return RSVP.reject(function () {
+                    _highlightInvalidInput(_getStepUrlInputElement());
                 });
             }
             selectionId = stepUrlSelectionElement.id;
         } else if (userValuesSelectionElement.checked) {
             if (!appName.trim() && !testName.trim()) {
-                _highlightInvalidInput(_getAppNameInputElement());
-                _highlightInvalidInput(_getTestNameInputElement());
-                return RSVP.reject(new Error('Invalid application/test name'));
+                return RSVP.reject(function () {
+                    _highlightInvalidInput(_getAppNameInputElement());
+                    _highlightInvalidInput(_getTestNameInputElement());
+                });
             }
 
             selectionId = userValuesSelectionElement.id;
@@ -514,25 +555,38 @@
             }).then(function () {
                 return ConfigurationStore.setBaselineTestName(testName);
             }).then(function () {
-                var baselineButton = document.getElementById(_SHOW_BASELINE_ELEMENT_ID);
-                return _updateShowBaselinePanelButton(baselineButton, selectionId);
+                return _updateShowBaselinePanelButton(_getShowBaselinePanelButton(), selectionId);
             }).then(function () {
                 return _initViewportSize();
-            }).then(function () {
-                return _showPanel(_MAIN_PANEL_ELEMENT_ID);
             });
     };
 
     /**
-     * Ignores all changes the user performed in the baseline panel, and shows the main panel.
-     * @return {Promise} A promise which is resolved when the main panel is shown.
+     * Saves the changes the user performed on the baseline panel (if valid) and shows the main panel. If changes were
+     * not valid, it will NOT switch back to the main panel.
+     * @return {Promise} A promise which resolves when the changes are saved and the main panel is set to be shown,
+     *                   or rejected if the user provided values are invalid.
      * @private
      */
-    var _onBaselineCancelButtonClicked = function () {
-        // Reset the user selection to the last values
-        return _initUserSelection().then(function () {
+    var _onBaselineOkayButtonClicked = function () {
+        return _saveBaselineSettings().then(function () {
             return _showPanel(_MAIN_PANEL_ELEMENT_ID);
+        }, function (onErrorCallback) {
+            onErrorCallback();
         });
+    };
+
+    var _setBaselineImageLoadingEnabled = function (isEnabled) {
+        Applitools.setBaselineImageLoadingEnabled(isEnabled);
+        var useImageAsBaselineCheckbox = _getUseImageAsBaselineCheckboxElement();
+        useImageAsBaselineCheckbox.disabled = !isEnabled;
+        useImageAsBaselineCheckbox.checked = isEnabled && Applitools.getShouldUseImageAsBaseline();
+
+        if (isEnabled) {
+            _getBaselineImageContainer().classList.remove(_DISABLED_CLASS);
+        } else {
+            _getBaselineImageContainer().classList.add(_DISABLED_CLASS);
+        }
     };
 
     /**
@@ -541,9 +595,14 @@
      * @private
      */
     var _onInputElementsUnSelected = function (elements) {
-        for (var i=0; i<elements.length; ++i) {
+        for (var i = 0; i < elements.length; ++i) {
             var currentElement = elements[i];
             currentElement.classList.remove(_SELECTED_CLASS);
+
+            // For anything other than step URL, we enable baseline image loading
+            if (currentElement === _getStepUrlInputElement()) {
+                _setBaselineImageLoadingEnabled(true);
+            }
         }
     };
 
@@ -553,10 +612,13 @@
      * @private
      */
     var _onInputElementsSelected = function (elements) {
-        for (var i=0; i<elements.length; ++i) {
+        for (var i = 0; i < elements.length; ++i) {
             var currentElement = elements[i];
-            if (!currentElement.classList.contains(_SELECTED_CLASS)) {
-                currentElement.classList.add(_SELECTED_CLASS);
+            currentElement.classList.add(_SELECTED_CLASS);
+
+            // For step URL selection, we disable baseline image loading.
+            if (currentElement === _getStepUrlInputElement()) {
+                _setBaselineImageLoadingEnabled(false);
             }
         }
     };
@@ -570,7 +632,7 @@
         _getStepUrlSelectionElement().checked = true;
         _onInputElementsSelected([_getStepUrlInputElement()]);
         _onInputElementsUnSelected([_getAppNameInputElement(), _getTestNameInputElement()]);
-        return RSVP.resolve(_getStepUrlInputElement());
+        return _saveBaselineSettings().then(_getStepUrlInputElement);
     };
 
     /**
@@ -582,7 +644,7 @@
         _getUserValuesSelectionElement().checked = true;
         _onInputElementsSelected([_getAppNameInputElement(), _getTestNameInputElement()]);
         _onInputElementsUnSelected([_getStepUrlInputElement()]);
-        return RSVP.resolve(_getAppNameInputElement());
+        return _saveBaselineSettings().then(_getAppNameInputElement);
     };
 
     /**
@@ -594,7 +656,7 @@
         _getUserValuesSelectionElement().checked = true;
         _onInputElementsSelected([_getAppNameInputElement(), _getTestNameInputElement()]);
         _onInputElementsUnSelected([_getStepUrlInputElement()]);
-        return RSVP.resolve(_getTestNameInputElement());
+        return _saveBaselineSettings().then(_getTestNameInputElement);
     };
 
     /**
@@ -605,7 +667,7 @@
     var _onBaselineDefaultSelectionSelected = function () {
         _getDefaultValuesSelectionElement().checked = true;
         _onInputElementsUnSelected([_getStepUrlInputElement(), _getAppNameInputElement(), _getTestNameInputElement()]);
-        return RSVP.resolve(_getDefaultValuesSelectionContainer());
+        return _saveBaselineSettings().then(_getDefaultValuesSelectionContainer);
     };
 
     //noinspection SpellCheckingInspection
@@ -634,6 +696,20 @@
     };
 
     /**
+     * Wraps a function with 'debounce'.
+     * @param {function} f The function to wrap with debounce.
+     * @param {number} [timeout=500] The timeout of the debounce.
+     * @param {Object} [options={leading: true, trailing: false}] Options object to pass to the debug
+     * @returns {function} The function wrapped in the debounce.
+     * @private
+     */
+    var _wrapWithDebounce = function (f, timeout, options) {
+        timeout = timeout ? timeout : 1000;
+        options = options ? options : {leading: true, trailing: false};
+        return debounce(f, timeout, options);
+    };
+
+    /**
      * Initializes the user selection elements (which one is selected, and the current value, if exists).
      * @return {Promise} A promise which resolves to the checked element initialization is done.
      * @private
@@ -649,21 +725,23 @@
         return ConfigurationStore.getBaselineStepUrl().then(function (stepUrl) {
             stepUrlInput.value = stepUrl || '';
             stepUrlInput.addEventListener('click', _onBaselineStepUrlSelected);
-            stepUrlInput.addEventListener('keypress', _onBaselineStepUrlSelected);
+            // Since keypress might be activated multiple times very quickly (e.g, when the user is typing),
+            // we want to pass it through a 'debounce' mechanism.
+            stepUrlInput.addEventListener('keypress', _wrapWithDebounce(_onBaselineStepUrlSelected));
             return _makeOkayable(stepUrlInput).then(function () {
                 return ConfigurationStore.getBaselineAppName();
             });
         }).then(function (appName) {
             appNameInput.value = appName || '';
             appNameInput.addEventListener('click', _onBaselineAppNameSelected);
-            appNameInput.addEventListener('keypress', _onBaselineAppNameSelected);
+            appNameInput.addEventListener('keypress', _wrapWithDebounce(_onBaselineAppNameSelected));
             return _makeOkayable(appNameInput).then(function () {
                 return ConfigurationStore.getBaselineTestName();
             });
         }).then(function (testName) {
             testNameInput.value = testName || '';
             testNameInput.addEventListener('click', _onBaselineTestNameSelected);
-            testNameInput.addEventListener('keypress', _onBaselineTestNameSelected);
+            testNameInput.addEventListener('keypress', _wrapWithDebounce(_onBaselineTestNameSelected));
             return _makeOkayable(testNameInput).then(function() {
                 return ConfigurationStore.getBaselineSelection();
             });
@@ -672,9 +750,9 @@
             _getDefaultValuesSelectionElement().addEventListener('click', _onBaselineDefaultSelectionSelected);
             _getStepUrlSelectionElement().addEventListener('click', _onBaselineStepUrlSelected);
             _getUserValuesSelectionElement().addEventListener('click', _onBaselineAppNameSelected);
-            // Default values should be select also when we tab-moved into the default values container.
+            // Default values should be select also when we move using the "tab" key into the default values container.
             defaultValuesSelectionContainer.addEventListener('focus', _onBaselineDefaultSelectionSelected);
-            // Making the Selections acceptable by clicking "Return.
+            // Making the Selections acceptable by clicking "Return".
             return _makeOkayable(defaultValuesSelectionContainer).then(function () {
                 return _makeOkayable(_getUserValuesSelectionElement()).then(function () {
                     return _makeOkayable(_getStepUrlSelectionElement()).then(function () {
@@ -767,12 +845,12 @@
      * @private
      */
     var _updateStepText = function () {
-        return new RSVP.Promise(function (resolve, reject) {
+        return new RSVP.Promise(function (resolve) {
             var stepsCount, currentStepIndex, stepText;
             Applitools.getStepsCount().then(function (stepsCount_) {
                 stepsCount = stepsCount_;
             }).then(function () {
-                return Applitools.getCurrentStepIndex()
+                return Applitools.getCurrentStepIndex();
             }).then(function (currentStepIndex_) {
                 currentStepIndex = currentStepIndex_;
                 if (currentStepIndex === undefined) {
@@ -782,7 +860,7 @@
             }).then(function (stepText_) {
                 if (stepText_ !== undefined) {
                     // The "+1" is to show the index in a human format :)
-                    stepText = (currentStepIndex+1) + "/" + stepsCount + ": " + stepText_;
+                    stepText = (currentStepIndex + 1) + '/' + stepsCount + ': ' + stepText_;
                 } else {
                     stepText = '';
                 }
@@ -799,7 +877,7 @@
 
     /**
      * Handle the steps load event.
-     * @return A promise which resolves when the loading finished.
+     * @return {Promise} A promise which resolves when the loading finished.
      * @private
      */
     var _onStepsLoad = function () {
@@ -831,7 +909,7 @@
     };
 
     /**
-     * Initializes the steps panel's close button with the required listeners.
+     * Initializes the steps panel's load button with the required listeners.
      * @return {Promise} A promise which resolves to the steps load button element.
      * @private
      */
@@ -915,8 +993,6 @@
      * @private
      */
     var _initStepsPanel = function () {
-
-
         return _initStepsLoadButton()
             .then(function () {
                 return _initCloseStepsPanel();
@@ -933,7 +1009,7 @@
                 }
 
                 return _updateStepText().then(function () {
-                    _showStepsPanel(true)
+                    _showStepsPanel(true);
                 });
             });
     };
@@ -963,14 +1039,135 @@
     };
 
     /**
-     * Initializes the baseline panel's "Cancel" button with the required listeners.
-     * @return {Promise} A promise which resolves when the initialization is done.
+     * Sets whether or not we should use a baseline image.
+     * @param {boolean} shouldUse Whether or not we should use a baseline image.
+     * @param {boolean} [updateBgPageState=true] Whether or not we should update the current state of the background
+     *                  script. We might not want to that if this function is called due to reading state from the
+     *                  background script.
+     * @returns {Promise} A promise which resolves once the value is set, or rejects if no image was previously loaded.
      * @private
      */
-    var _initBaselineCancelButton = function () {
-        var cancelButton = document.getElementById(_BASELINE_CANCEL_ELEMENT_ID);
-        cancelButton.addEventListener('click', _onBaselineCancelButtonClicked);
-        return RSVP.resolve(cancelButton);
+    var _setShouldUseBaselineImage = function (shouldUse, updateBgPageState) {
+        updateBgPageState = updateBgPageState === undefined ? true : updateBgPageState;
+
+        // Checkbox checked/unchecked
+        var baselineImageCheckboxElement = _getUseImageAsBaselineCheckboxElement();
+        baselineImageCheckboxElement.checked = Applitools.isBaselineImageLoadingEnabled() && shouldUse;
+
+        // Image name input styling + file name.
+        var baselineImageFilenameInputElement = _getBaselineImageFilenameInputElement();
+        var baselineImageName = Applitools.getBaselineImageName();
+        baselineImageFilenameInputElement.value = baselineImageName ? baselineImageName : '';
+        if (shouldUse) {
+            baselineImageFilenameInputElement.classList.add(_FILE_LOADED_CLASS);
+        } else {
+            baselineImageFilenameInputElement.classList.remove(_FILE_LOADED_CLASS);
+        }
+
+        var resultPromise = updateBgPageState ? Applitools.setShouldUseImageAsBaseline(shouldUse) : Promise.resolve();
+        return resultPromise.then(function () {
+            return ConfigurationStore.getBaselineSelection();
+        }).then(function (selectionId) {
+            return _updateShowBaselinePanelButton(_getShowBaselinePanelButton(), selectionId);
+        });
+    };
+
+    /**
+     * Handle the baseline image load event.
+     * @return {Promise} A promise which resolves when the loading finished.
+     * @private
+     */
+    var _onBaselineImageLoad = function () {
+        // Since this function is a direct event handler for a DOM element, "this" refers to the "File" input element.
+        var fileInput = this;
+        return new Promise(function (resolve) {
+            if (fileInput.files.length > 0) {
+                var imageFile = fileInput.files[0];
+                var name = imageFile.name;
+                var reader = new FileReader();
+                reader.onload = function (e) {
+                    // The result is an ArrayBuffer, but we need it as a buffer.
+                    var image = toBuffer(e.target.result);
+                    return Applitools.prepareImageForBaseline(image, name)
+                        .then(function () {
+                            // We reset the value of the load button so that we can re-open the same file is needed.
+                            fileInput.value = '';
+                            return _setShouldUseBaselineImage(true);
+                        }).then(function () {
+                            resolve();
+                        });
+                };
+                // FIXME add handling reader.onerror
+                reader.readAsArrayBuffer(imageFile);
+            } else {
+                // If there's no file to load (e.g, when clicking "cancel" on the open file dialog).
+                resolve();
+            }
+        });
+    };
+
+    /**
+     * Initializes the baseline panel's load baseline image button with the required listeners.
+     * @return {Promise} A promise which resolves to the baseline image load button element.
+     * @private
+     */
+    var _initBaselineImageLoadButton = function () {
+        var baselineImageLoadButton = _getBaselineImageLoadButtonElement();
+        baselineImageLoadButton.addEventListener('change', _onBaselineImageLoad);
+    };
+
+    /**
+     * Initializes the baseline panel's "load baseline image" label.
+     * @return {Promise} A promise which resolves to the baseline image load label element.
+     * @private
+     */
+    var _initBaselineImageLoadLabel = function () {
+        var imageLoadLabel = _getBaselineImageLoadButtonLabelElement();
+        imageLoadLabel.addEventListener('click', function () {
+            if (Applitools.isBaselineImageLoadingEnabled()) {
+                // Passing the click on to the image load button (since the button is not visible and hidden by
+                // the label).
+                _getBaselineImageLoadButtonElement().click();
+            }
+            return Promise.resolve();
+        });
+        return _makeOkayable(imageLoadLabel);
+    };
+
+    /**
+     * @return {Promise} A promise which resolves when the click handling is done.
+     * @private
+     */
+    var _onUseBaselineAsImageCheckboxClick = function () {
+        var resultPromise = Promise.resolve();
+
+        var useImageAsBaselineCheckbox = _getUseImageAsBaselineCheckboxElement();
+        if (useImageAsBaselineCheckbox.checked) {
+            // An image was already loaded, so just mark it for use.
+            if (Applitools.isImageAsBaselineLoaded()) {
+                resultPromise = _setShouldUseBaselineImage(true);
+            } else {
+                // No file was selected yet, so we want the checkbox to marked only after the user selects a file from
+                // the "open file" dialog.
+                useImageAsBaselineCheckbox.checked = false;
+                // Open the file dialog.
+                _getBaselineImageLoadButtonElement().click();
+            }
+        } else {
+            resultPromise = _setShouldUseBaselineImage(false);
+        }
+        return resultPromise;
+    };
+
+    /**
+     * Initializes the baseline panel's "use image as baseline" checkbox.
+     * @return {Promise} A promise which resolves to the use image as baseline checkbox element.
+     * @private
+     */
+    var _initUseImageAsBaselineCheckbox = function () {
+        var useImageAsBaselineCheckbox = _getUseImageAsBaselineCheckboxElement();
+        useImageAsBaselineCheckbox.addEventListener('click', _onUseBaselineAsImageCheckboxClick);
+        return _makeOkayable(useImageAsBaselineCheckbox);
     };
 
     /**
@@ -979,7 +1176,7 @@
      * @private
      */
     var _initBaselineOkButton = function () {
-        var okButton = document.getElementById(_BASELINE_OK_ELEMENT_ID);
+        var okButton = _getBaselineOkButtonElement();
         okButton.addEventListener('click', _onBaselineOkayButtonClicked);
         return RSVP.resolve(okButton);
     };
@@ -990,7 +1187,17 @@
      * @private
      */
     var _initBaselinePanel = function () {
-        return RSVP.all([_initUserSelection(), _initBaselineOkButton(), _initBaselineCancelButton()]);
+        // A hack to avoid initializing the baseline more than once.
+        if (!_baselineIinitalized) {
+            _baselineIinitalized = true;
+            return RSVP.all([_initUserSelection(), _initBaselineOkButton(), _initBaselineImageLoadLabel(),
+                _initBaselineImageLoadButton(), _initUseImageAsBaselineCheckbox()])
+                .then(function () {
+                    return _setShouldUseBaselineImage(Applitools.getShouldUseImageAsBaseline(), false);
+                });
+        } else {
+            return Promise.resolve();
+        }
     };
 
     /**
@@ -999,7 +1206,7 @@
      * @private
      */
     var _initPage = function () {
-        // Since we want to make sure the batch panel is initialized before the main panel, and both of them
+        // We want to make sure the batch panel is initialized before the main panel, and both of them
         // after a timeout, so we avoid rendering glitches.
         var mainPanelInitPromise = _initBatchPanel().then(function () {
             return _initMainPanel();

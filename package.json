@@ -2,7 +2,16 @@
   "name": "eyes.extension",
   "version": "0.0.1",
   "description": "eyes.extension\r ==============",
-  "main": "ConfigurationStore.js",
+  "main": "EyesHandler.js",
+  "eslintConfig": {
+    "env": {
+      "node": true,
+      "browser": true
+    },
+    "globals": {
+      "chrome": true
+    }
+  },
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1"
   },
@@ -17,8 +26,11 @@
   },
   "homepage": "https://github.com/applitools/eyes.extension",
   "devDependencies": {
-      "eyes.utils": "0.0.8",
-      "eyes.images": "0.0.26",
-      "rsvp": "*"
+    "eyes.images": "0.0.28",
+    "eyes.utils": "0.0.8",
+    "lodash.debounce": "^3.1.1",
+    "restler": "^3.3.0",
+    "rsvp": "*",
+    "typedarray-to-buffer": "^3.0.3"
   }
 }

@@ -140,7 +140,7 @@
      */
     var createFromString = function (s) {
         var stepsHandler = new StepsHandler();
-        return stepsHandler.setSteps(s.split("\n"));
+        return stepsHandler.setSteps(s.split('\n'));
     };
 
     module.exports.StepsHandler = StepsHandler;
