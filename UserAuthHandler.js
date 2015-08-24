@@ -8,13 +8,12 @@
         ConfigurationStore = require('./ConfigurationStore.js');
 
     var UserAuthHandler = function () {
-        this._APPLITOOLS_BACKWARDS_COMPATIBILITY_LOGIN_URL = undefined;
+        this._APPLITOOLS_BACKWARDS_COMPATIBILITY_LOGIN_URL = 'https://www.applitools.com/login/';
         this._APPLITOOLS_ACCESS_DENIED_URL = undefined;
         this._APPLITOOLS_NEW_AUTH_URL = undefined;
         this.userAccounts = undefined; // The list of the user accounts received from the server.
         this.currentAccountIndex = -1; // The account selected by the user, defaults to the account marked as current
                                         // by the server.
-        this.currentAccountId = undefined;
         this.backwardsCompatibility = undefined; // An object which contains the backwards-compatible login data.
         this.userRedirectUrl = undefined; // The URL to redirect the user to, if we failed to load the credentials.
     };
@@ -24,18 +23,22 @@
      * occurred.
      */
     UserAuthHandler.prototype.loadCredentials = function () {
+        var currentAccountId;
         return new Promise(function (resolve, reject) {
             ConfigurationStore.getEyesServerUrl()
                 .then(function (eyesServerUrl) {
-                    this._APPLITOOLS_BACKWARDS_COMPATIBILITY_LOGIN_URL = GeneralUtils.urlConcat(eyesServerUrl, '/login/');
                     //noinspection SpellCheckingInspection
                     this._APPLITOOLS_ACCESS_DENIED_URL = GeneralUtils.urlConcat(eyesServerUrl, '/app/accessdenied');
                 }.bind(this)).then(function () {
                     return ConfigurationStore.getEyesApiServerUrl();
-                }.bind(this)).then(function (eyesApiServerUrl) {
+                }).then(function (eyesApiServerUrl) {
                     this._APPLITOOLS_NEW_AUTH_URL = GeneralUtils.urlConcat(eyesApiServerUrl, '/api/auth/authredirect');
                 }.bind(this)).then(function () {
-                    ConfigurationStore.getUserAccounts().then(function (accountsInfo) {
+                    return ConfigurationStore.getCurrentAccountId();
+                }).then(function (currentAccountId_) {
+                    currentAccountId = currentAccountId_;
+                }).then(function () {
+                    return ConfigurationStore.getUserAccounts().then(function (accountsInfo) {
                         // If we're inside the resolve section, this means we're using the new auth scheme.
                         this.backwardsCompatibility = undefined;
 
@@ -55,8 +58,7 @@
                         var defaultAccountIndex = 0; // The index provided by the server.
                         for (var i = 0; i < accountsInfo.length; ++i) {
                             // If the user selected an account before
-                            if (this.currentAccountId && this.currentAccountId === accountsInfo[i].accountId) {
-                                this.currentAccountId = accountsInfo[i].accountId;
+                            if (currentAccountId && currentAccountId === accountsInfo[i].accountId) {
                                 this.currentAccountIndex = i;
                                 break;
                             }
@@ -64,13 +66,20 @@
                                 defaultAccountIndex = i;
                             }
                         }
-                        // If we couldn't find the account previously selected by the user.
+                        var resultPromise = Promise.resolve();
+                        // If we couldn't find the account previously selected by the user, we set account marked as
+                        // "current" by the server to be the current account.
                         if (this.currentAccountIndex === -1) {
                             this.currentAccountIndex = defaultAccountIndex;
-                            this.currentAccountId = accountsInfo[defaultAccountIndex].accountId;
+                            resultPromise = resultPromise.then(function() {
+                                return ConfigurationStore.setCurrentAccountId(
+                                    accountsInfo[defaultAccountIndex].accountId);
+                            });
                         }
                         this.userAccounts = accountsInfo;
-                        resolve(this);
+                        resultPromise.then(function () {
+                            resolve(this);
+                        }.bind(this));
                     }.bind(this), function () {
                         // Failed to load accounts for some reason, let's try the backwards compatible way.
                         this.userAccounts = undefined;
@@ -112,16 +121,16 @@
     };
 
     /**
-     * @returns {String} The accountId of the user's current account.
+     * @returns {Promise} A promise which resolves to the user's current account ID.
      */
     UserAuthHandler.prototype.getCurrentAccountId = function () {
-        return this.currentAccountId;
+        return ConfigurationStore.getCurrentAccountId();
     };
 
     /**
      * @returns {Promise} A promise which resolves to the account index once the account is set, or rejects on failure.
      */
-    UserAuthHandler.prototype.setCurrentAccount = function (accountId) {
+    UserAuthHandler.prototype.setCurrentAccountId = function (accountId) {
         return new Promise(function (resolve, reject) {
             // If we're not using the new authentication scheme
             if (!this.userAccounts) {
@@ -129,18 +138,20 @@
                 return;
             }
 
-            var foundAccount = false;
+            var currentAccountIndex = -1;
             for (var i = 0; i < this.userAccounts.length; ++i) {
                 if (accountId === this.userAccounts[i].accountId) {
-                    this.currentAccountId = accountId;
-                    this.currentAccountIndex = i;
-                    foundAccount = true;
+                    currentAccountIndex = i;
                     break;
                 }
             }
 
-            if (foundAccount) {
-                resolve(this.currentAccountIndex);
+            // If we found the account
+            if (currentAccountIndex !== -1) {
+                ConfigurationStore.setCurrentAccountId(accountId).then(function () {
+                    this.currentAccountIndex = currentAccountIndex;
+                    resolve(this.currentAccountIndex);
+                }.bind(this));
                 return;
             }
 

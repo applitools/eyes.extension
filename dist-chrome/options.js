@@ -138,7 +138,7 @@
         var userAccountsSelectionElement = _getUserAccountsSelectionElement();
         var selectedElement = userAccountsSelectionElement.selectedOptions[0];
         var authHandler = Applitools.getUserAuthHandler();
-        return authHandler.setCurrentAccount(selectedElement.value);
+        return authHandler.setCurrentAccountId(selectedElement.value);
     };
 
     /**
@@ -156,8 +156,10 @@
             accountNames.push(userAccounts[i].accountName);
             accountIds.push(userAccounts[i].accountId);
         }
-        return JSUtils.setSelect(userAccountsSelectionElement, accountNames, accountIds,
-            authHandler.getCurrentAccountId()).then(function () {
+        return authHandler.getCurrentAccountId()
+            .then(function (currentAccountId) {
+                return JSUtils.setSelect(userAccountsSelectionElement, accountNames, accountIds, currentAccountId);
+            }).then(function () {
                 return RSVP.resolve(userAccountsSelectionElement);
             });
     };

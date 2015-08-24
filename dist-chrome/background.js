@@ -389,7 +389,10 @@ window.Applitools = (function () {
     Applitools_.optionsOpened = function () {
         // Any unread errors are now read.
         Applitools_.currentState.unreadErrorsExist = false;
-        return Applitools_.verifyUserAccount();
+        // We just want to try and load the user credentials if we have them, but it's not critical.
+        return _userAuthHandler.loadCredentials().catch(function () {
+            // Nothing to do really.
+        });
     };
 
     /**

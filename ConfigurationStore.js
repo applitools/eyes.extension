@@ -23,6 +23,7 @@
     var _REMOVE_SCROLLBARS_LK = 'scrollBars';
     var _EYES_SERVER_URL_LK = 'eyesServer';
     var _EYES_API_SERVER_URL_LK = 'eyesApiServer';
+    var _CURRENT_ACCOUNT_ID_LK = 'currentAccountId';
     var _PAGE_PART_WAIT_TIME_LK = 'pagePartWaitTime';
 
     var _API_KEY_COOKIE_URL = 'https://applitools.com';
@@ -410,6 +411,24 @@
                 userAccountsRequest.send();
             });
         }.bind(this));
+    };
+
+    /**
+     * Used for the new authentication scheme (this is DIFFERENT from the account ID COOKIE).
+     * @return {Promise} A promise which resolves to the saved account ID, or {@code undefined} if there's no such
+     * value in the storage.
+     */
+    ConfigurationStore.getCurrentAccountId = function () {
+        return StorageAdapter.getItem(_CURRENT_ACCOUNT_ID_LK, undefined);
+    };
+
+    /**
+     * Used for the new authentication scheme (this is DIFFERENT from the account ID COOKIE).
+     * @param {string} [currentAccountId] The value to save.
+     * @return {Promise} A promise which resolves when the value is saved, or rejects otherwise.
+     */
+    ConfigurationStore.setCurrentAccountId = function (currentAccountId) {
+        return StorageAdapter.setItem(_CURRENT_ACCOUNT_ID_LK, currentAccountId);
     };
 
     //noinspection JSUnresolvedVariable
