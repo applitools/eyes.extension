@@ -6,13 +6,10 @@
 
     //noinspection JSUnresolvedFunction
     var EyesImages = require('eyes.images'),
-        EyesUtils = require('eyes.utils'),
         restler = require('restler'),
-        RSVP = require('rsvp'),
         Eyes = EyesImages.Eyes,
         MatchLevel = EyesImages.MatchLevel,
         ConsoleLogHandler = EyesImages.ConsoleLogHandler,
-        GeneralUtils = EyesUtils.GeneralUtils,
         ConfigurationStore = require('./ConfigurationStore.js');
 
     var EyesHandler = {};
