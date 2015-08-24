@@ -745,12 +745,8 @@ window.Applitools = (function () {
     Applitools_._saveImageAsBaseline = function (image, testParams) {
         var imageTestParams = Object.create(testParams);
         imageTestParams.saveFailedTests = true;
-        return EyesHandler.testImage(imageTestParams, image, 'Image to be used as baseline', _userAuthHandler)
-            .then(function (testResults) {
-                return EyesHandler.deleteTests([testResults.sessionId], _userAuthHandler);
-            }).catch(function () {
-                // If the deletion failed, we still want to continue.
-            });
+        imageTestParams.removeSession = true;
+        return EyesHandler.testImage(imageTestParams, image, 'Image to be used as baseline', _userAuthHandler);
     };
 
     /**

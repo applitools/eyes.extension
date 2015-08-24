@@ -50,6 +50,9 @@
                     if (testParams.saveFailedTests) {
                         eyes.setSaveFailedTests(true);
                     }
+                    if (testParams.removeSession) {
+                        eyes.setRemoveSession(true);
+                    }
                     if (testParams.inferred) {
                         eyes.setInferredEnvironment(testParams.inferred);
                     } else {
@@ -74,47 +77,6 @@
                         });
                 });
         });
-    };
-
-    /**
-     * Delete the tests with the given IDs.
-     * @param {Array} testIds The list of test IDs to delete.
-     * @param {UserAuthHandler} authHandler authentication handler.
-     * @returns {Promise} A promise which resolves when the delete is finished, or rejects if an error occurred.
-     */
-    EyesHandler.deleteTests = function (testIds, authHandler) {
-        var eyesApiServerUrl;
-        var CONNECTION_TIMEOUT_MS = 5 * 60 * 1000,
-            DEFAULT_HEADERS = {'Accept': 'application/json', 'Content-Type': 'application/json'};
-
-
-        return ConfigurationStore.getEyesApiServerUrl()
-            .then(function (eyesApiServerUrl_) {
-                eyesApiServerUrl = eyesApiServerUrl_;
-            }).then(function () {
-                return authHandler.getAccessKey();
-            }).then(function (accessKeyObj) {
-                var queryObj = {};
-                queryObj[accessKeyObj.name] = accessKeyObj.value;
-                var httpOptions = {
-                    rejectUnauthorized: false,
-                    headers: DEFAULT_HEADERS,
-                    timeout: CONNECTION_TIMEOUT_MS,
-                    query: queryObj
-                };
-
-                var url = GeneralUtils.urlConcat(eyesApiServerUrl, 'api/sessions');
-                return new RSVP.Promise(function (resolve, reject) {
-                    restler.json(url, {ids: testIds}, httpOptions, 'DELETE')
-                        .on('complete', function (data, response) {
-                            if (response.statusCode === 200) {
-                                resolve();
-                            } else {
-                                reject(new Error('Error trying to delete sessions!'));
-                            }
-                        });
-                });
-            });
     };
 
     //noinspection JSUnresolvedVariable
