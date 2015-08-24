@@ -6,9 +6,12 @@
 
     //noinspection JSUnresolvedFunction
     var ConfigurationStore = require('./../ConfigurationStore.js'),
+        JSUtils = require('./../JSUtils.js'),
         RSVP = require('rsvp');
 
     var Applitools = chrome.extension.getBackgroundPage().Applitools;
+
+    var _NOT_DISPLAYED_CLASS = 'notDisplayed';
 
     /**
      * Sets whether or not a new tab should be opened for showing results on test end.
@@ -116,6 +119,65 @@
             element.addEventListener('change', _saveRemoveScrollBars);
             return RSVP.resolve(element);
         });
+    };
+
+    var _getUserAccountsSelectionContainerElement = function () {
+        return document.getElementById('userAccountsContainer');
+    };
+
+    var _getUserAccountsSelectionElement = function () {
+        return document.getElementById('userAccounts');
+    };
+
+    /**
+     * Sets whether or not we should hide the scrollbars before taking a screenshot.
+     * @return {Promise} A promise which resolves when the save is finished.
+     * @private
+     */
+    var _saveUserAccounts = function () {
+        var userAccountsSelectionElement = _getUserAccountsSelectionElement();
+        var selectedElement = userAccountsSelectionElement.selectedOptions[0];
+        var authHandler = Applitools.getUserAuthHandler();
+        return authHandler.setCurrentAccount(selectedElement.value);
+    };
+
+    /**
+     * Loads the user accounts into the select element.
+     * @return {Promise} A promise which resolves to the element when the accounts are loaded.
+     * @private
+     */
+    var _restoreUserAccounts = function () {
+        var userAccountsSelectionElement = _getUserAccountsSelectionElement();
+        var authHandler = Applitools.getUserAuthHandler();
+        var userAccounts = authHandler.getUserAccounts();
+        var accountNames = [];
+        var accountIds = [];
+        for (var i = 0; i < userAccounts.length; ++i) {
+            accountNames.push(userAccounts[i].accountName);
+            accountIds.push(userAccounts[i].accountId);
+        }
+        return JSUtils.setSelect(userAccountsSelectionElement, accountNames, accountIds,
+            authHandler.getCurrentAccountId()).then(function () {
+                return RSVP.resolve(userAccountsSelectionElement);
+            });
+    };
+
+    /**
+     * Loads the required values and sets the required listeners.
+     * @return {Promise} A promise which resolves to the element when the initialization is finished.
+     * @private
+     */
+    var _initUserAccounts = function () {
+        var userAuthHandler = Applitools.getUserAuthHandler();
+        // We only use this element if we're using the new authentication scheme.
+        if (userAuthHandler.getUserAccounts()) {
+            _getUserAccountsSelectionContainerElement().classList.remove(_NOT_DISPLAYED_CLASS);
+            return _restoreUserAccounts().then(function (element) {
+                // Registering for the change event so we'll know when to update the element.
+                element.addEventListener('change', _saveUserAccounts);
+                return RSVP.resolve(element);
+            });
+        }
     };
 
     /**
@@ -281,7 +343,7 @@
         var logsElement = document.getElementById("runLogs");
         var logs = Applitools.currentState.logs;
         //noinspection JSLint
-        for (var i=0; i<logs.length; ++i) {
+        for (var i = 0; i < logs.length; ++i) {
             var currentLog = logs[i];
             logsElement.value += currentLog.timestamp + "\t" + currentLog.message + "\r\n";
         }
@@ -290,15 +352,17 @@
 
     /**
      * Loads the values and sets the required handlers of the option elements in the page.
-     * @return {Array} An array of the initialized elements.
+     * @return {Promise} A promise which resolves to the array of the initialized elements.
      * @private
      */
     var _initPage = function () {
         // We're done when ALL options are loaded.
-        return RSVP.all([Applitools.optionsOpened(), _initNewTabForResults(), _initTakeFullPageScreenshot(),
-            _initRemoveScrollBars(), _initEyesServerUrl(), _initRestoreDefaultUrlButton(),
-            _initEyesApiServerUrl(), _initRestoreDefaultApiUrlButton(), _initPagePartWaitTime(),
-            _initRestoreDefaultPagePartWaitTimeButton(), _restoreLogs()]);
+        return Applitools.optionsOpened().then(function () {
+            return RSVP.all([_initNewTabForResults(), _initTakeFullPageScreenshot(),
+                _initRemoveScrollBars(), _initUserAccounts(), _initEyesServerUrl(), _initRestoreDefaultUrlButton(),
+                _initEyesApiServerUrl(), _initRestoreDefaultApiUrlButton(), _initPagePartWaitTime(),
+                _initRestoreDefaultPagePartWaitTimeButton(), _restoreLogs()]);
+        });
     };
 
     document.addEventListener('DOMContentLoaded', _initPage);

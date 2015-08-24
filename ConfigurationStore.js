@@ -52,7 +52,7 @@
      * @type {string[]}
      * @private
      */
-    var _viewportSizes  = ['320x480', '320x533', '320x568', '360x640', '481x600', '600x1024', '720x600', '768x1024',
+    var _viewportSizes = ['320x480', '320x533', '320x568', '360x640', '481x600', '600x1024', '720x600', '768x1024',
                             '800x600', '900x650', '1024x600', '1180x700', '1260x660', '1420x800', '1800x950'];
 
     var _DEFAULT_VIEWPORT_SIZE = '800x600';
@@ -346,6 +346,7 @@
     };
 
     /**
+     * Used by the old authentication scheme. Available only for backwards compatibility.
      * @return {Promise} A promise which resolves to the saved API key, or if the API key available via applitools
      * cookie, or undefined.
      */
@@ -356,6 +357,7 @@
     };
 
     /**
+     * Used by the old authentication scheme. Available only for backwards compatibility.
      * @return {Promise} A promise which resolves to the saved accountId key, or if the accountId key available
      * via applitools cookie, or undefined.
      */
@@ -363,6 +365,51 @@
         return StorageAdapter.getCookie(_ACCOUNT_ID_COOKIE_URL, _ACCOUNT_ID_COOKIE_NAME).then(function (cookie) {
             return cookie ? cookie.value : undefined;
         });
+    };
+
+
+    /**
+     * Used for the new authentication scheme.
+     * @return {Promise} A promise which resolves to an array of objects with of the following fields:
+     *  "accountName": The username used for logging into the Eyes server.
+     *  "accountId": The account ID. Used for creating the results URL for the user.
+     *  "accessKey": Unused by the extension.
+     *  "runnerKey": The key used for running tests by the user.
+     *  "isViewer": Whether or not the user can only view results (not save).
+     *  "isCurrent": Whether or not this is the current account used by the user.
+     */
+    ConfigurationStore.getUserAccounts = function () {
+        return new RSVP.Promise(function (resolve, reject) {
+            this.getEyesApiServerUrl().then(function (apiServerUrl) {
+                if (!apiServerUrl) {
+                    reject('Eyes API server URL is not available!');
+                    return;
+                }
+                var userAccountsUrl = apiServerUrl + '/api/auth/accounts.json';
+                var userAccountsRequest = new XMLHttpRequest();
+                userAccountsRequest.open('GET', userAccountsUrl);
+                userAccountsRequest.onload = function () {
+                    if (userAccountsRequest.status === 200) {
+                        var accountsInfo;
+                        try {
+                            accountsInfo = JSON.parse(userAccountsRequest.responseText);
+                            resolve(accountsInfo);
+                        } catch (e) {
+                            reject('Failed to parse accounts info: ' + e);
+                        }
+                    } else if (userAccountsRequest.status === 403) {
+                        // This means that the user is not logged in.
+                        resolve(undefined);
+                    } else {
+                        reject(new Error('Failed to get accounts info: ' + userAccountsRequest.statusText));
+                    }
+                };
+                userAccountsRequest.onerror = function () {
+                    reject(new Error('Network error when trying to get accounts info!'));
+                };
+                userAccountsRequest.send();
+            });
+        }.bind(this));
     };
 
     //noinspection JSUnresolvedVariable

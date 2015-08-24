@@ -13,13 +13,13 @@ window.Applitools = (function () {
         WindowHandler = require('./WindowHandler.js'),
         StepsHandler = require('../StepsHandler.js'),
         BaselineImageHandler = require('../BaselineImageHandler.js'),
+        UserAuthHandler = require('../UserAuthHandler.js'),
         RSVP = require('rsvp');
 
-    var _DEFAULT_BROWSER_ACTION_TOOLTIP = "Applitools Eyes. No tests are currently running.";
+    var _DEFAULT_BROWSER_ACTION_TOOLTIP = 'Applitools Eyes. No tests are currently running.';
     var _MAX_LOGS_COUNT = 100;
     var _MAX_PARALLEL_CRAWLER_TABS = 5;
     var _TAB_LOAD_TIME_MS = 10000;
-    var _APPLITOOLS_LOGIN_URL = 'https://applitools.com/login/';
 
     // Keeps a mapping of baseline ID to tab ID in order to reuse result tabs
     var _resultTabs = {};
@@ -35,6 +35,8 @@ window.Applitools = (function () {
     var _baselineImageHandler;
     var _isBaselineImageLoadingEnabled = true;
 
+    var _userAuthHandler = new UserAuthHandler();
+
     Applitools_.currentState = {
         screenshotTakenMutex: {},
         batchId: undefined,
@@ -49,10 +51,8 @@ window.Applitools = (function () {
     // Add a listener to the run-test hotkey.
     chrome.commands.onCommand.addListener(function (command) {
         if (command === 'run-test') {
-            return Applitools_.verifyApiKey().then(function (apiKey) {
-                if (apiKey !== null) {
+            return Applitools_.verifyUserAccount().then(function () {
                     return Applitools_.runSingleTest();
-                }
             });
         }
     });
@@ -341,37 +341,32 @@ window.Applitools = (function () {
     };
 
     /**
-     * Verifies that the api keys exists, and opens the login tab if they don't.
-     * @return {Promise} A promise which resolves to the API keys, or to undefined if there's no api key.
+     * Verifies that the user is logged in and has a valid account in the Eyes server. If the user is not logged in,
+     * this function opens a tab to the login/auth/access-denied page.
+     * @return {Promise} A promise which resolves if the user is authenticated, or rejects otherwise.
      */
-    Applitools_.verifyApiKey = function () {
-        var apiKey, accountId;
-        return ConfigurationStore.getApiKey()
-            .then(function (apiKey_) {
-                apiKey = apiKey_;
-                return ConfigurationStore.getAccountId();
-            }).then(function (accountId_) {
-                accountId = accountId_;
-            }).then(function () {
-                if (!apiKey || !accountId) {
-                    return new RSVP.Promise(function (resolve) {
-                        ChromeUtils.getCurrentTab().then(function (currentTab) {
-                            chrome.tabs.create({
+    Applitools_.verifyUserAccount = function () {
+        return _userAuthHandler.loadCredentials()
+            .catch(function (err) {
+                return Applitools_._log(err)
+                    .then(function () {
+                        return new RSVP.Promise(function (resolve, reject) {
+                            ChromeUtils.getCurrentTab().then(function (currentTab) {
+                                chrome.tabs.create({
                                     windowId: currentTab.windowId,
-                                    url: _APPLITOOLS_LOGIN_URL,
+                                    url: _userAuthHandler.getUserCredentialsRedirectUrl(),
                                     active: true
                                 }, function () {
                                     Applitools_.updateBrowserActionBadge(true,
-                                        'You must be signed in to Applitools in order to use this extension.').
+                                        'You must be signed in to the Eyes server and have at least one account, in order to use this extension.').
                                         then(function () {
-                                            resolve();
+                                            reject();
                                         });
                                 });
+                            });
                         });
                     });
-                }
-                return {apiKey: apiKey, accountId: accountId};
-        });
+            });
     };
 
     /**
@@ -383,7 +378,7 @@ window.Applitools = (function () {
         Applitools_.currentState.newErrorsExist = false;
         return Applitools_.updateBrowserActionBadge(false, undefined)
             .then(function () {
-                return Applitools_.verifyApiKey();
+                return Applitools_.verifyUserAccount();
             });
     };
 
@@ -394,7 +389,14 @@ window.Applitools = (function () {
     Applitools_.optionsOpened = function () {
         // Any unread errors are now read.
         Applitools_.currentState.unreadErrorsExist = false;
-        return RSVP.resolve();
+        return Applitools_.verifyUserAccount();
+    };
+
+    /**
+     * @return {UserAuthHandler} The user authentication handler object.
+     */
+    Applitools_.getUserAuthHandler = function () {
+        return _userAuthHandler;
     };
 
     /**
@@ -743,9 +745,9 @@ window.Applitools = (function () {
     Applitools_._saveImageAsBaseline = function (image, testParams) {
         var imageTestParams = Object.create(testParams);
         imageTestParams.saveFailedTests = true;
-        return EyesHandler.testImage(imageTestParams, image, 'Image to be used as baseline')
+        return EyesHandler.testImage(imageTestParams, image, 'Image to be used as baseline', _userAuthHandler)
             .then(function (testResults) {
-                return EyesHandler.deleteTests([testResults.sessionId]);
+                return EyesHandler.deleteTests([testResults.sessionId], _userAuthHandler);
             }).catch(function () {
                 // If the deletion failed, we still want to continue.
             });
@@ -811,7 +813,7 @@ window.Applitools = (function () {
             screenshotTakenDeferred.resolve();
 
             // Run the test
-            EyesHandler.testImage(testParams, image, title)
+            EyesHandler.testImage(testParams, image, title, _userAuthHandler)
                 .then(function (testResults) {
                     testFinishedDeferred.resolve(testResults);
                 }).catch(function () {

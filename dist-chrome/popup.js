@@ -54,36 +54,7 @@
         _BASELINE_OK_ELEMENT_ID = 'baselineOk';
 
 
-    var _baselineIinitalized = false;
-
-    /**
-     * Sets the options for a select html element (options' values are also the options' texts).
-     * @param selectElement The element for which to add the options.
-     * @param optionValues The list of values to be used as options.
-     * @param defaultValue
-     * @return {Promise} A promise which resolves to the element when done setting the options.
-     * @private
-     */
-    var _setSelect = function (selectElement, optionValues, defaultValue) {
-        //noinspection JSLint
-        for (var i = 0; i < optionValues.length; ++i) {
-            var currentValue = optionValues[i];
-
-            // Initialize the option to be added
-            var optionElement = document.createElement('option');
-            optionElement.value = currentValue;
-            optionElement.title = currentValue; // In case we shorten the text to fit into the select
-            optionElement.innerText = currentValue;
-
-            // If this is the default option, set it as such.
-            if (currentValue === defaultValue) {
-                optionElement.selected = 'selected';
-            }
-
-            selectElement.appendChild(optionElement);
-        }
-        return RSVP.resolve(selectElement);
-    };
+    var _baselineInitialized = false;
 
     // Shortcuts for getting DOM elements which are called often.
     var _getStepUrlInputElement = function () {
@@ -403,7 +374,7 @@
             // Get currently set match level
             return ConfigurationStore.getMatchLevel().then(function (matchLevel) {
                 // Update the element.
-                return _setSelect(matchLevelElement, allMatchLevels, matchLevel);
+                return JSUtils.setSelect(matchLevelElement, allMatchLevels, allMatchLevels, matchLevel);
             }).then(function (initializedElement) {
                 initializedElement.addEventListener('change', _onMatchLevelChanged);
                 return RSVP.resolve(initializedElement);
@@ -449,7 +420,7 @@
                 "Set the viewport size in which the test will run";
 
             // Update the element.
-            return _setSelect(viewportSizeElement, allViewportSizes, viewportSize);
+            return JSUtils.setSelect(viewportSizeElement, allViewportSizes, allViewportSizes, viewportSize);
         }).then(function (initializedElement) {
             initializedElement.addEventListener('change', _onViewportSizeChanged);
             return RSVP.resolve(initializedElement);
@@ -1188,8 +1159,8 @@
      */
     var _initBaselinePanel = function () {
         // A hack to avoid initializing the baseline more than once.
-        if (!_baselineIinitalized) {
-            _baselineIinitalized = true;
+        if (!_baselineInitialized) {
+            _baselineInitialized = true;
             return RSVP.all([_initUserSelection(), _initBaselineOkButton(), _initBaselineImageLoadLabel(),
                 _initBaselineImageLoadButton(), _initUseImageAsBaselineCheckbox()])
                 .then(function () {

@@ -9,7 +9,7 @@
 
     var JSUtils = {};
 
-    JSUtils.AJAX_TIMEOUT = "AJAX_TIMEOUT";
+    JSUtils.AJAX_TIMEOUT = 'AJAX_TIMEOUT';
 
     /**
      * Waits a specified amount of time before resolving the returned promise.
@@ -85,7 +85,7 @@
         var abortTimer;
 
         var xhr = new XMLHttpRequest();
-        xhr.open("GET", url);
+        xhr.open('GET', url);
         //noinspection SpellCheckingInspection
         xhr.onreadystatechange = function () {
             if (this.readyState === this.DONE) {
@@ -113,6 +113,35 @@
         }, timeout);
 
         return deferred.promise;
+    };
+
+    /**
+     * Sets the options for a select html element (options' values are also the options' texts).
+     * @param selectElement The element for which to add the options.
+     * @param optionNames The list of names to be used as options' names.
+     * @param optionValues The list of values to be used as the options' values.
+     * @param defaultValue
+     * @return {Promise} A promise which resolves to the element when done setting the options.
+     */
+    JSUtils.setSelect = function (selectElement, optionNames, optionValues, defaultValue) {
+        //noinspection JSLint
+        for (var i = 0; i < optionValues.length; ++i) {
+            var currentName = optionNames[i];
+            var currentValue = optionValues[i];
+            // Initialize the option to be added
+            var optionElement = document.createElement('option');
+            optionElement.value = currentValue;
+            optionElement.title = currentName; // In case we shorten the text to fit into the select
+            optionElement.innerText = currentName;
+
+            // If this is the default option, set it as such.
+            if (currentValue === defaultValue) {
+                optionElement.selected = 'selected';
+            }
+
+            selectElement.appendChild(optionElement);
+        }
+        return RSVP.resolve(selectElement);
     };
 
     //** Task scheduling
