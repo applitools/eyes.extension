@@ -188,7 +188,7 @@
      * @private
      */
     var _saveEyesServerUrl = function () {
-        var eyesServerUrl = document.getElementById('eyesServerUrl').value;
+        var eyesServerUrl = document.getElementById('eyesServerUrl').value.trim();
         return ConfigurationStore.setEyesServerUrl(eyesServerUrl);
     };
 
@@ -239,7 +239,7 @@
      * @private
      */
     var _saveEyesApiServerUrl = function () {
-        var eyesApiServerUrl = document.getElementById('eyesApiServerUrl').value;
+        var eyesApiServerUrl = document.getElementById('eyesApiServerUrl').value.trim();
         return ConfigurationStore.setEyesApiServerUrl(eyesApiServerUrl);
     };
 
