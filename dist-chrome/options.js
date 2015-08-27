@@ -171,15 +171,25 @@
      */
     var _initUserAccounts = function () {
         var userAuthHandler = Applitools.getUserAuthHandler();
-        // We only use this element if we're using the new authentication scheme.
-        if (userAuthHandler.getUserAccounts()) {
-            _getUserAccountsSelectionContainerElement().classList.remove(_NOT_DISPLAYED_CLASS);
-            return _restoreUserAccounts().then(function (element) {
-                // Registering for the change event so we'll know when to update the element.
-                element.addEventListener('change', _saveUserAccounts);
-                return RSVP.resolve(element);
+        // Make sure the user credentials are loaded.
+        return userAuthHandler.loadCredentials()
+            .catch(function () {
+                // Nothing to do really. We just wanted to make sure that if credentials are available, they are loaded.
+            }).then(function () {
+                // We only use this element if we're using the new authentication scheme.
+                if (userAuthHandler.getUserAccounts()) {
+                    _getUserAccountsSelectionContainerElement().classList.remove(_NOT_DISPLAYED_CLASS);
+                    return _restoreUserAccounts().then(function (element) {
+                        // Registering for the change event so we'll know when to update the element.
+                        element.addEventListener('change', _saveUserAccounts);
+                        return RSVP.resolve(element);
+                    });
+                } else {
+                    // If there are no user accounts, there's no "account list" to present.
+                    _getUserAccountsSelectionContainerElement().classList.add(_NOT_DISPLAYED_CLASS);
+                    return RSVP.resolve(_getUserAccountsSelectionElement());
+                }
             });
-        }
     };
 
     /**
@@ -239,8 +249,15 @@
      * @private
      */
     var _saveEyesApiServerUrl = function () {
+        var result;
         var eyesApiServerUrl = document.getElementById('eyesApiServerUrl').value.trim();
-        return ConfigurationStore.setEyesApiServerUrl(eyesApiServerUrl);
+        return ConfigurationStore.setEyesApiServerUrl(eyesApiServerUrl)
+            .then(function (result_) {
+                result = result_;
+                return _initUserAccounts();
+            }).then(function () {
+                return result;
+            });
     };
 
     /**
@@ -279,6 +296,8 @@
         restoreDefaultApiUrlButton.addEventListener('click', function () {
             return ConfigurationStore.setEyesApiServerUrl(undefined).then(function () {
                 return _restoreEyesApiServer();
+            }).then(function () {
+                return _initUserAccounts();
             });
         });
         return RSVP.resolve();
@@ -359,11 +378,14 @@
      */
     var _initPage = function () {
         // We're done when ALL options are loaded.
-        return Applitools.optionsOpened().then(function () {
-            return RSVP.all([_initNewTabForResults(), _initTakeFullPageScreenshot(),
-                _initRemoveScrollBars(), _initUserAccounts(), _initEyesServerUrl(), _initRestoreDefaultUrlButton(),
-                _initEyesApiServerUrl(), _initRestoreDefaultApiUrlButton(), _initPagePartWaitTime(),
-                _initRestoreDefaultPagePartWaitTimeButton(), _restoreLogs()]);
+        return Applitools.optionsOpened()
+            .then(function () {
+                return _initUserAccounts();
+            }).then(function () {
+                return RSVP.all([_initNewTabForResults(), _initTakeFullPageScreenshot(),
+                    _initRemoveScrollBars(), _initEyesServerUrl(), _initRestoreDefaultUrlButton(),
+                    _initEyesApiServerUrl(), _initRestoreDefaultApiUrlButton(), _initPagePartWaitTime(),
+                    _initRestoreDefaultPagePartWaitTimeButton(), _restoreLogs()]);
         });
     };
 
