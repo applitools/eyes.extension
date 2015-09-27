@@ -1084,7 +1084,7 @@ window.Applitools = (function () {
      */
     Applitools_.crawl = function () {
         var originalTab, testParams, appName, testName, preparedWindowData;
-        var currentTabScreenshotPromise, currentTabFinishedTestPromise;
+        var currentTabScreenshotPromise;
         var urlsToCrawl;
         var shouldUseBaselineImageOrigValue;
         var taskRunner = new JSUtils.SequentialTaskRunner();
@@ -1113,9 +1113,11 @@ window.Applitools = (function () {
                     return RSVP.reject();
                 });
         }).then(function () {
-            shouldUseBaselineImageOrigValue = Applitools_.getShouldUseImageAsBaseline();
             // For crawled tests we don't want to use a loaded baseline image.
-            return Applitools_.setShouldUseImageAsBaseline(false);
+            if (Applitools_.isImageAsBaselineLoaded()) {
+                shouldUseBaselineImageOrigValue = Applitools_.getShouldUseImageAsBaseline();
+                return Applitools_.setShouldUseImageAsBaseline(false);
+            }
         }).then(function () {
             return Applitools_._prepareWindowForTests(originalTab, testParams.viewportSize);
         }).then(function (preparedWindowData_) {
@@ -1126,7 +1128,6 @@ window.Applitools = (function () {
             return Applitools_._runTest(taskRunner, preparedWindowData.updated.tab, testParams);
         }).then(function (testPromises) {
             currentTabScreenshotPromise = testPromises.screenshotTaken;
-            currentTabFinishedTestPromise = testPromises.testFinished;
         }).then(function () { //** Crawling
             return Applitools_._getUrlsToCrawl(preparedWindowData.updated.tab);
         }).then(function (urlsToCrawl_) {
@@ -1136,7 +1137,7 @@ window.Applitools = (function () {
             for (var i = 0; i < urlsToCrawl.length; ++i) {
                 // Remove duplicate URLs (e.g., if the one of the crawled URLs is the same as the original URL).
                 if (originalTab.url === urlsToCrawl[i]
-                    || (i > 0 && urlsToCrawl[i] === urlsToCrawl[i-1])) {
+                    || (i > 0 && urlsToCrawl[i] === urlsToCrawl[i - 1])) {
                     urlsToCrawl.splice(i, 1);
                 }
             }
@@ -1158,7 +1159,11 @@ window.Applitools = (function () {
 
             return RSVP.all(tabsDonePromises);
         }).then(function () {
-            Applitools_.setShouldUseImageAsBaseline(shouldUseBaselineImageOrigValue);
+            return currentTabScreenshotPromise;
+        }).then(function () {
+            if (Applitools_.isImageAsBaselineLoaded()) {
+                Applitools_.setShouldUseImageAsBaseline(shouldUseBaselineImageOrigValue);
+            }
         }).then(function () {
             return Applitools_._restoreTab(preparedWindowData.updated.tab,
                 preparedWindowData.updated.isNewWindowCreated,
