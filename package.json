@@ -31,6 +31,7 @@
     "lodash.debounce": "^3.1.1",
     "restler": "^3.3.0",
     "rsvp": "*",
-    "typedarray-to-buffer": "^3.0.3"
+    "typedarray-to-buffer": "^3.0.3",
+    "urijs": "^1.16.1"
   }
 }

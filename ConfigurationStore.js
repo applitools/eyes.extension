@@ -381,12 +381,12 @@
      */
     ConfigurationStore.getUserAccounts = function () {
         return new RSVP.Promise(function (resolve, reject) {
-            this.getEyesApiServerUrl().then(function (apiServerUrl) {
-                if (!apiServerUrl) {
-                    reject('Eyes API server URL is not available!');
+            this.getEyesServerUrl().then(function (serverUrl) {
+                if (!serverUrl) {
+                    reject('Eyes server URL is not available!');
                     return;
                 }
-                var userAccountsUrl = apiServerUrl + '/api/auth/accounts.json';
+                var userAccountsUrl = serverUrl + '/api/auth/accounts.json';
                 var userAccountsRequest = new XMLHttpRequest();
                 userAccountsRequest.open('GET', userAccountsUrl);
                 userAccountsRequest.onload = function () {

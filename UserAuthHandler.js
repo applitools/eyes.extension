@@ -1,5 +1,5 @@
 /**
- * Encapsulates handling of an image to be used as a baseline.
+ * Encapsulates handling user authentication with the applitools server.
  */
 (function () {
     'use strict';
@@ -29,10 +29,7 @@
                 .then(function (eyesServerUrl) {
                     //noinspection SpellCheckingInspection
                     this._APPLITOOLS_ACCESS_DENIED_URL = GeneralUtils.urlConcat(eyesServerUrl, '/app/accessdenied');
-                }.bind(this)).then(function () {
-                    return ConfigurationStore.getEyesApiServerUrl();
-                }).then(function (eyesApiServerUrl) {
-                    this._APPLITOOLS_NEW_AUTH_URL = GeneralUtils.urlConcat(eyesApiServerUrl, '/api/auth/authredirect');
+                    this._APPLITOOLS_NEW_AUTH_URL = GeneralUtils.urlConcat(eyesServerUrl, '/api/auth/authredirect');
                 }.bind(this)).then(function () {
                     return ConfigurationStore.getCurrentAccountId();
                 }).then(function (currentAccountId_) {

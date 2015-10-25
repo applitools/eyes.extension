@@ -7,6 +7,7 @@
     //noinspection JSUnresolvedFunction
     var EyesImages = require('eyes.images'),
         restler = require('restler'),
+        URI = require('urijs'),
         Eyes = EyesImages.Eyes,
         MatchLevel = EyesImages.MatchLevel,
         ConsoleLogHandler = EyesImages.ConsoleLogHandler,
@@ -33,7 +34,7 @@
                     if (testParams.batch && testParams.batch.id) {
                         eyes.setBatch(testParams.batch.name, testParams.batch.id);
                     }
-                    eyes.setAgentId('eyes.extension.chrome/1.27');
+                    eyes.setAgentId('eyes.extension.chrome/1.28');
                     // TODO Daniel - hack, to use layout2 instead of layout as an experiment.
                     if (testParams.matchLevel === 'Layout') {
                         eyes.setMatchLevel(MatchLevel.Layout2);
@@ -66,7 +67,11 @@
                             return authHandler.getResultsViewKey();
                         }).then(function (viewKey) {
                             if (viewKey) {
-                                results.url = results.url + '?' + viewKey.name + '=' + viewKey.value;
+                                var resultsUrl = URI(results.url);
+                                if (resultsUrl.hasQuery(viewKey.name) === false) {
+                                    resultsUrl.addQuery(viewKey.name, viewKey.value);
+                                }
+                                results.url = resultsUrl.toString();
                             }
                             return results;
                         }).catch(function () {
