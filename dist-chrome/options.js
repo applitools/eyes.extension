@@ -121,6 +121,42 @@
         });
     };
 
+    /**
+     * Sets whether or not we should include the query parameters of the current page as part of the default test name.
+     * @return {Promise} A promise which resolves when the save is finished.
+     * @private
+     */
+    var _saveIncludeQueryParamsInDefaultTestName = function () {
+        var shouldInclude = document.getElementById('includeQueryParamsForTestName').checked;
+        return ConfigurationStore.setIncludeQueryParamsForTestName(shouldInclude);
+    };
+
+    /**
+     * Loads the saved value to the checkbox.
+     * @return {Promise} A promise which resolves to the element when the checkbox is set.
+     * @private
+     */
+    var _restoreIncludeQueryParamsInDefaultTestName = function () {
+        var includeQueryParamsElement = document.getElementById('includeQueryParamsForTestName');
+        return ConfigurationStore.getIncludeQueryParamsForTestName().then(function (shouldInclude) {
+            includeQueryParamsElement.checked = shouldInclude;
+            return RSVP.resolve(includeQueryParamsElement);
+        });
+    };
+
+    /**
+     * Loads the required value and sets the required listeners.
+     * @return {Promise} A promise which resolves to the element when the initialization is finished.
+     * @private
+     */
+    var _initIncludeQueryParamsInDefaultTestName = function () {
+        return _restoreIncludeQueryParamsInDefaultTestName().then(function (element) {
+            // Registering for the change event so we'll know when to update the element.
+            element.addEventListener('change', _saveIncludeQueryParamsInDefaultTestName);
+            return RSVP.resolve(element);
+        });
+    };
+
     var _getUserAccountsSelectionContainerElement = function () {
         return document.getElementById('userAccountsContainer');
     };
@@ -361,12 +397,12 @@
      * @private
      */
     var _restoreLogs = function () {
-        var logsElement = document.getElementById("runLogs");
+        var logsElement = document.getElementById('runLogs');
         var logs = Applitools.currentState.logs;
         //noinspection JSLint
         for (var i = 0; i < logs.length; ++i) {
             var currentLog = logs[i];
-            logsElement.value += currentLog.timestamp + "\t" + currentLog.message + "\r\n";
+            logsElement.value += currentLog.timestamp + '\t' + currentLog.message + '\r\n';
         }
         return RSVP.resolve();
     };
@@ -383,9 +419,9 @@
                 return _initUserAccounts();
             }).then(function () {
                 return RSVP.all([_initNewTabForResults(), _initTakeFullPageScreenshot(),
-                    _initRemoveScrollBars(), _initEyesServerUrl(), _initRestoreDefaultUrlButton(),
-                    _initEyesApiServerUrl(), _initRestoreDefaultApiUrlButton(), _initPagePartWaitTime(),
-                    _initRestoreDefaultPagePartWaitTimeButton(), _restoreLogs()]);
+                    _initRemoveScrollBars(), _initIncludeQueryParamsInDefaultTestName(), _initEyesServerUrl(),
+                    _initRestoreDefaultUrlButton(), _initEyesApiServerUrl(), _initRestoreDefaultApiUrlButton(),
+                    _initPagePartWaitTime(), _initRestoreDefaultPagePartWaitTimeButton(), _restoreLogs()]);
         });
     };
 

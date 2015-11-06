@@ -498,16 +498,23 @@ window.Applitools = (function () {
     /**
      * Returns the default test name given a URL.
      * @param {string} url The url from which to extract the default test name.
-     * @return {string} The default test name.
+     * @return {Promise} A promise which resolves to the default test name.
      * @private
      */
     Applitools_._getDefaultTestName = function (url) {
-        var pathRegexResult = /https?:\/\/[^\r\n]+?(\/[^\r\n]*)(?:\?|$)/.exec(url);
-        var testName = "Homepage"; // default
-        if (pathRegexResult && pathRegexResult[1] !== '/') {
-            testName = pathRegexResult[1];
-        }
-        return testName;
+        return ConfigurationStore.getIncludeQueryParamsForTestName().then(function (shouldInclude) {
+            var pathRegexResult;
+            if (shouldInclude) {
+                pathRegexResult = /https?:\/\/[^\r\n]+?(\/[^\r\n]*?)$/.exec(url);
+            } else {
+                pathRegexResult = /https?:\/\/[^\r\n]+?(\/[^\r\n]*?)(?:\?|$)/.exec(url);
+            }
+            var testName = 'Homepage'; // default
+            if (pathRegexResult && pathRegexResult[1] !== '/' && pathRegexResult[1] !== '/?') {
+                testName = pathRegexResult[1];
+            }
+            return testName;
+        });
     };
 
     /**
@@ -549,7 +556,7 @@ window.Applitools = (function () {
      * @private
      */
     Applitools_._getTestParameters = function (currentUrl, forceDefaultTestName) {
-        var matchLevel, baselineSelectionId, shouldUseBatch;
+        var matchLevel, baselineSelectionId, shouldUseBatch, defaultTestName;
 
         return ConfigurationStore.getMatchLevel().then(function (matchLevel_) {
             matchLevel = matchLevel_;
@@ -561,8 +568,10 @@ window.Applitools = (function () {
         }).then(function (shouldUseBatch_) {
             shouldUseBatch = shouldUseBatch_;
         }).then(function () {
+            return Applitools_._getDefaultTestName(currentUrl);
+        }).then(function (defaultTestName_) {
+            defaultTestName = defaultTestName_;
             var testParamsPromise;
-            var defaultTestName = Applitools_._getDefaultTestName(currentUrl);
 
             if (baselineSelectionId === 'stepUrlSelection' && _stepsHandler === undefined) {
                 testParamsPromise = ConfigurationStore.getBaselineStepUrl().then(function (baselineStepUrl) {
@@ -1063,11 +1072,14 @@ window.Applitools = (function () {
         }
         // Get test parameters with the correct test name
         var testParams = Applitools_._cloneTestParams(baseTestParameters);
-        testParams.testName = Applitools_._getDefaultTestName(url);
 
-        return ChromeUtils.loadUrl(tab.id, url).then(function () {
-            // Give the page time to load.
-            return JSUtils.sleep(_TAB_LOAD_TIME_MS);
+        return Applitools_._getDefaultTestName(url).then(function (defaultTestName) {
+            testParams.testName = defaultTestName;
+        }).then(function () {
+            return ChromeUtils.loadUrl(tab.id, url).then(function () {
+                // Give the page time to load.
+                return JSUtils.sleep(_TAB_LOAD_TIME_MS);
+            });
         }).then(function () {
             var testPromises = Applitools_._runTest(taskScheduler, tab, testParams);
             testPromises.screenshotTaken.then(function () {

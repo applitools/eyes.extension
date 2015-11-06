@@ -4,7 +4,7 @@
     "name": "Applitools Eyes Express",
     "short_name": "Eyes",
     "description": "1-click visual testing. Run tests directly from the browser. No coding required.",
-    "version": "1.28",
+    "version": "1.29",
 
     "icons": {
         "48": "images/icon_applitools_48.png",

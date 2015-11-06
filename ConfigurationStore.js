@@ -21,6 +21,7 @@
     var _NEW_TAB_FOR_RESULTS_LK = 'newTabForResults';
     var _TAKE_FULL_PAGE_SCREENSHOT_LK = 'takeFullPageScreenshot';
     var _REMOVE_SCROLLBARS_LK = 'scrollBars';
+    var _QUERY_PARAMS_IN_DEFAULT_TEST_NAME_LK = 'includeQueryParamsInDefaultTestName';
     var _EYES_SERVER_URL_LK = 'eyesServer';
     var _EYES_API_SERVER_URL_LK = 'eyesApiServer';
     var _CURRENT_ACCOUNT_ID_LK = 'currentAccountId';
@@ -61,6 +62,7 @@
     var _DEFAULT_NEW_TAB_FOR_RESULTS = true;
     var _DEFAULT_TAKE_FULL_PAGE_SCREENSHOT = true;
     var _DEFAULT_REMOVE_SCROLLBARS = true;
+    var _DEFAULT_INCLUDE_QUERY_PARAMS_IN_DEFAULT_TEST_NAME = false;
 
     /**
      * Sets a value for the given key in the storage, or removes the currently set value if the given value is
@@ -284,6 +286,27 @@
             shouldRemove = _DEFAULT_REMOVE_SCROLLBARS;
         }
         return StorageAdapter.setItem(_REMOVE_SCROLLBARS_LK, shouldRemove);
+    };
+
+    /**
+     * @return {Promise} A promise which resolves to the saved choice, or the predefined default if there's no such
+     * value in the storage.
+     */
+    ConfigurationStore.getIncludeQueryParamsForTestName = function () {
+        return StorageAdapter.getItem(_QUERY_PARAMS_IN_DEFAULT_TEST_NAME_LK,
+            _DEFAULT_INCLUDE_QUERY_PARAMS_IN_DEFAULT_TEST_NAME);
+    };
+
+    /**
+     * @param {boolean} shouldInclude The choice to save. Undefined/invalid value will cause the predefined default
+     *                  to be set.
+     * @return {Promise} A promise which resolves when the value is saved, or rejects otherwise.
+     */
+    ConfigurationStore.setIncludeQueryParamsForTestName = function (shouldInclude) {
+        if (shouldInclude === undefined) {
+            shouldInclude = _DEFAULT_INCLUDE_QUERY_PARAMS_IN_DEFAULT_TEST_NAME;
+        }
+        return StorageAdapter.setItem(_QUERY_PARAMS_IN_DEFAULT_TEST_NAME_LK, shouldInclude);
     };
 
     /**
