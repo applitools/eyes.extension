@@ -26,8 +26,8 @@
   },
   "homepage": "https://github.com/applitools/eyes.extension",
   "devDependencies": {
-    "eyes.images": "0.0.29",
-    "eyes.utils": "0.0.8",
+    "eyes.images": "0.0.34",
+    "eyes.utils": "0.0.12",
     "lodash.debounce": "^3.1.1",
     "restler": "^3.3.0",
     "rsvp": "*",
