@@ -162,9 +162,10 @@
      * @return {Promise} A promise which resolves to the current transform value.
      */
     WindowHandler.getCurrentTransform = function (tabId) {
-        return ChromeUtils.executeScript(tabId, "document.body.style.transform", undefined).then(function (results) {
-            return RSVP.resolve(results[0]);
-        });
+        return ChromeUtils.executeScript(tabId, 'document.documentElement.style.transform', undefined)
+            .then(function (results) {
+                return RSVP.resolve(results[0]);
+            });
     };
 
     /**
@@ -180,9 +181,9 @@
             transformToSet = '';
         }
         return ChromeUtils.executeScript(tabId,
-            "var originalTransform = document.body.style.transform; " +
-            "document.body.style.transform = '" + transformToSet + "'; " +
-            "originalTransform",
+            'var originalTransform = document.documentElement.style.transform; ' +
+            "document.documentElement.style.transform = '" + transformToSet + "'; " +
+            'originalTransform',
             stabilizationTimeMs)
             .then(function (results) {
                 return RSVP.resolve(results[0]);
@@ -565,6 +566,11 @@
         }).then(function (originalTransform_) {
             originalTransform = originalTransform_;
             return JSUtils.sleep(1000);
+        }).then(function () {
+            // Sleep time before initial screenshot.
+            return ConfigurationStore.getPagePartWaitTime();
+        }).then(function (waitTime) {
+            return JSUtils.sleep(waitTime);
         }).then(function () {
             // Capture the first image part, or entire screenshot.
             return WindowHandler.getTabScreenshot(tab, true, scaleRatio, [viewportSize, entirePageSize]);
