@@ -225,18 +225,19 @@
         return RSVP.all([scrollWidthPromise, bodyScrollWidthPromise, clientHeightPromise, bodyClientHeightPromise,
             scrollHeightPromise, bodyScrollHeightPromise]).then(function (results) {
             // Notice that each result is itself actually an array (since executeScript returns an Array).
-            var scrollWidth = parseInt(results[0][0], 10);
-            var bodyScrollWidth = parseInt(results[1][0], 10);
-            var totalWidth = Math.max(scrollWidth, bodyScrollWidth);
+            // Also, we since 'parseInt' (and in turn 'max') might return NaN, we add the "|| 0" to each such call.
+            var scrollWidth = parseInt(results[0][0], 10) || 0;
+            var bodyScrollWidth = parseInt(results[1][0], 10) || 0;
+            var totalWidth = Math.max(scrollWidth, bodyScrollWidth) || 0;
 
-            var clientHeight = parseInt(results[2][0], 10);
-            var bodyClientHeight = parseInt(results[3][0], 10);
-            var scrollHeight = parseInt(results[4][0], 10);
-            var bodyScrollHeight = parseInt(results[5][0], 10);
+            var clientHeight = parseInt(results[2][0], 10) || 0;
+            var bodyClientHeight = parseInt(results[3][0], 10) || 0;
+            var scrollHeight = parseInt(results[4][0], 10) || 0;
+            var bodyScrollHeight = parseInt(results[5][0], 10) || 0;
 
-            var maxDocumentElementHeight = Math.max(clientHeight, scrollHeight);
-            var maxBodyHeight = Math.max(bodyClientHeight, bodyScrollHeight);
-            var totalHeight = Math.max(maxDocumentElementHeight, maxBodyHeight);
+            var maxDocumentElementHeight = Math.max(clientHeight, scrollHeight) || 0;
+            var maxBodyHeight = Math.max(bodyClientHeight, bodyScrollHeight) || 0;
+            var totalHeight = Math.max(maxDocumentElementHeight, maxBodyHeight) || 0;
 
             return RSVP.resolve({width: totalWidth, height: totalHeight});
         });
