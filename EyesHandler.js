@@ -68,11 +68,22 @@
                             return authHandler.getResultsViewKey();
                         }).then(function (viewKey) {
                             if (viewKey) {
-                                var resultsUrl = URI(results.url);
-                                if (resultsUrl.hasQuery(viewKey.name) === false) {
-                                    resultsUrl.addQuery(viewKey.name, viewKey.value);
+                                var resultsUrl;
+
+                                if (results.url) {
+                                    resultsUrl = URI(results.url);
+                                } else if (results.appUrls && results.appUrls.session) {
+                                    resultsUrl = URI(results.appUrls.session);
+                                } else {
+                                    resultsUrl = undefined;
                                 }
-                                results.url = resultsUrl.toString();
+
+                                if (resultsUrl) {
+                                    if (resultsUrl.hasQuery(viewKey.name) === false) {
+                                        resultsUrl.addQuery(viewKey.name, viewKey.value);
+                                    }
+                                    results.url = resultsUrl.toString();
+                                }
                             }
                             return results;
                         }).catch(function () {

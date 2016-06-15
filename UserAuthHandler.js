@@ -35,16 +35,17 @@
                 }).then(function (currentAccountId_) {
                     currentAccountId = currentAccountId_;
                 }).then(function () {
-                    return ConfigurationStore.getUserAccounts().then(function (accountsInfo) {
+                    return ConfigurationStore.getUserAccounts().then(function (accountsResponse) {
                         // If we're inside the resolve section, this means we're using the new auth scheme.
                         this.backwardsCompatibility = undefined;
 
-                        if(!accountsInfo) {
+                        if(!accountsResponse) {
                             this.userRedirectUrl = this._APPLITOOLS_NEW_AUTH_URL;
                             reject('Failed to load credentials: user is not logged in.');
                             return;
                         }
 
+                        var accountsInfo = accountsResponse.accounts;
                         if (accountsInfo.length === 0) {
                             this.userRedirectUrl = this._APPLITOOLS_ACCESS_DENIED_URL;
                             reject('Failed to load credentials: user is not a member of any team.');
